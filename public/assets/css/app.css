@@ -462,3 +462,513 @@ a {
     border-color: var(--error-border);
     color: var(--error-text);
 }
+
+/* ==========================================================================
+   Bloc 3 — opérations, tags, navigation temporelle
+   ========================================================================== */
+
+/* --------------------------------------------------- Navigation temporelle */
+
+.period {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.period__browse {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.period__arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.period__arrow:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.period__arrow--disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.period__label {
+    min-width: 9rem;
+    text-align: center;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.period__today {
+    margin-left: var(--space-2);
+    font-size: 0.8125rem;
+    text-decoration: none;
+}
+
+.period__today:hover {
+    text-decoration: underline;
+}
+
+.period__scales {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+}
+
+.period__scale {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.period__scale:hover {
+    color: var(--text);
+}
+
+.period__scale--active {
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+/* ------------------------------------------------------------- Indicateurs */
+
+.stat__hint {
+    margin: var(--space-1) 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Seul le libelle de periode est capitalise : applique a tout l indice,
+   "Cumul de tout l historique" deviendrait "Cumul De Tout L Historique". */
+.stat__hint--period {
+    text-transform: capitalize;
+}
+
+/* --------------------------------------------------------- Entêtes / liens */
+
+.page-head--with-action {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+}
+
+.panel__link {
+    font-size: 0.875rem;
+    text-decoration: none;
+}
+
+.panel__link:hover {
+    text-decoration: underline;
+}
+
+/* -------------------------------------------------------------- Formulaires */
+
+.panel--form {
+    padding: var(--space-5);
+    margin-bottom: var(--space-5);
+}
+
+.panel--inline {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.panel--inline .field {
+    margin-bottom: 0;
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: var(--space-4);
+    align-items: end;
+}
+
+.field--grow {
+    flex: 1 1 200px;
+}
+
+.field__group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.field__suffix {
+    color: var(--text-muted);
+}
+
+.field__hint {
+    margin: var(--space-2) 0 0;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.field__optional {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.field__color {
+    width: 48px;
+    height: 38px;
+    padding: 2px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    cursor: pointer;
+}
+
+textarea.field__input {
+    resize: vertical;
+    font-family: inherit;
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+}
+
+.form-error__list {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+/* Sélecteur dépense / recette */
+
+.segmented {
+    display: inline-flex;
+    padding: 2px;
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+}
+
+.segmented__option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.segmented__option span {
+    display: block;
+    padding: 0.375rem 0.875rem;
+    border-radius: 4px;
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.segmented__option input:checked + span {
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.segmented__option input:focus-visible + span {
+    outline: 2px solid var(--accent);
+}
+
+/* ------------------------------------------------------------------- Tags */
+
+.tag-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.tag-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.tag-pick input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tag-pick__badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.tag-pick input:checked + .tag-pick__badge {
+    background: var(--tag-color);
+    border-color: var(--tag-color);
+    color: var(--tag-text);
+    font-weight: 500;
+}
+
+.tag-pick input:focus-visible + .tag-pick__badge {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.tag-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tag-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--border);
+}
+
+.tag-row:last-child {
+    border-bottom: none;
+}
+
+.tag-row__usage {
+    margin-right: auto;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.tag-row__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.tag-row__actions form {
+    margin: 0;
+}
+
+/* Barre de filtres */
+
+.filter-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+.filter-bar__label {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.tag-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    text-decoration: none;
+}
+
+.tag-filter:hover {
+    color: var(--text);
+}
+
+.tag-filter--active {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--surface);
+}
+
+.tag-filter__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ----------------------------------------------------- Liste d'opérations */
+
+.op-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.op-day {
+    border-bottom: 1px solid var(--border);
+}
+
+.op-day:last-child {
+    border-bottom: none;
+}
+
+.op-day__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-5) var(--space-2);
+    background: var(--bg);
+}
+
+.op-day__date {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.op-day__total {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.op-day__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.op {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    border-top: 1px solid var(--border);
+}
+
+.op:first-child {
+    border-top: none;
+}
+
+.op:hover {
+    background: var(--bg);
+}
+
+.op__main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    min-width: 0;
+    flex: 1;
+}
+
+.op__label {
+    font-weight: 500;
+}
+
+.op__tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.op__note {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.op__amount {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.op__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+
+.op:hover .op__actions,
+.op__actions:focus-within {
+    opacity: 1;
+}
+
+.op__delete {
+    margin: 0;
+}
+
+.amount--positive { color: var(--positive); }
+.amount--negative { color: var(--negative); }
+
+/* ---------------------------------------------------------- Petits boutons */
+
+.btn--small {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+}
+
+.btn--danger:hover {
+    color: var(--negative);
+    background: var(--error-bg);
+}
+
+/* ------------------------------------------------------------- Responsive */
+
+@media (max-width: 720px) {
+    .field-row {
+        grid-template-columns: 1fr;
+    }
+
+    .page-head--with-action {
+        flex-direction: column;
+    }
+
+    .op__actions {
+        opacity: 1;
+    }
+
+    .period {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .period__browse,
+    .period__scales {
+        justify-content: center;
+    }
+}

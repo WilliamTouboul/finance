@@ -1,6 +1,11 @@
 <?php
 /**
- * @var \App\Model\User $user
+ * @var \App\Core\Period                 $period
+ * @var int                              $balance
+ * @var array{income: int, expense: int} $totals
+ * @var array<int, \App\Model\Operation> $operations
+ * @var int                              $totalCount
+ * @var int                              $previewSize
  */
 
 use App\Core\Money;
@@ -11,31 +16,52 @@ use App\Core\View;
     <p class="page-head__subtitle">Vue d'ensemble de vos comptes</p>
 </div>
 
+<?= View::partial('partials/period-nav', ['period' => $period, 'baseUrl' => '/']) ?>
+
 <section class="stat-row" aria-label="Chiffres clés">
     <article class="stat">
-        <h2 class="stat__label">Solde</h2>
-        <p class="stat__value"><?= View::e(Money::format(0)) ?></p>
+        <h2 class="stat__label">Solde au <?= View::e($period->end->format('d/m/Y')) ?></h2>
+        <p class="stat__value <?= $balance < 0 ? 'stat__value--negative' : '' ?>">
+            <?= View::e(Money::format($balance)) ?>
+        </p>
+        <p class="stat__hint">Cumul de tout l'historique</p>
     </article>
 
     <article class="stat">
-        <h2 class="stat__label">Entrées du mois</h2>
-        <p class="stat__value stat__value--positive"><?= View::e(Money::format(0)) ?></p>
+        <h2 class="stat__label">Entrées</h2>
+        <p class="stat__value stat__value--positive"><?= View::e(Money::format($totals['income'])) ?></p>
+        <p class="stat__hint stat__hint--period"><?= View::e($period->label()) ?></p>
     </article>
 
     <article class="stat">
-        <h2 class="stat__label">Sorties du mois</h2>
-        <p class="stat__value stat__value--negative"><?= View::e(Money::format(0)) ?></p>
+        <h2 class="stat__label">Sorties</h2>
+        <p class="stat__value stat__value--negative"><?= View::e(Money::format($totals['expense'])) ?></p>
+        <p class="stat__hint stat__hint--period"><?= View::e($period->label()) ?></p>
     </article>
 </section>
 
 <section class="panel">
     <div class="panel__head">
         <h2 class="panel__title">Derniers flux</h2>
+
+        <?php if ($totalCount > $previewSize): ?>
+            <a class="panel__link" href="/operations?p=<?= View::e($period->toParam()) ?>">
+                Voir les <?= (int) $totalCount ?> opérations
+            </a>
+        <?php endif; ?>
     </div>
 
-    <div class="empty">
-        <p class="empty__title">Aucune opération pour le moment</p>
-        <p class="empty__text">Les opérations que vous saisirez apparaîtront ici, de la plus récente à la plus ancienne.</p>
-        <a class="btn btn--primary" href="/operations/nouvelle">Ajouter une opération</a>
-    </div>
+    <?php if ($operations === []): ?>
+        <div class="empty">
+            <p class="empty__title">Aucune opération sur cette période</p>
+            <p class="empty__text">
+                Changez de période avec les flèches ci-dessus, ou saisissez votre première opération.
+            </p>
+            <a class="btn btn--primary" href="/operations/nouvelle?p=<?= View::e($period->toParam()) ?>">
+                Ajouter une opération
+            </a>
+        </div>
+    <?php else: ?>
+        <?= View::partial('partials/operation-list', ['operations' => $operations]) ?>
+    <?php endif; ?>
 </section>

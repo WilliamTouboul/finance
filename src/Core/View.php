@@ -36,6 +36,20 @@ final class View
     }
 
     /**
+     * Rend un fragment reutilisable, sans layout.
+     *
+     * Un partiel ne voit que les donnees qu'on lui passe explicitement : il ne
+     * herite pas du contexte de la vue appelante. C'est plus verbeux a l'appel,
+     * mais on sait en lisant le fragment de quoi il depend.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function partial(string $template, array $data = []): string
+    {
+        return self::capture($template, $data);
+    }
+
+    /**
      * Echappement HTML. A utiliser sur toute valeur affichee dans un gabarit.
      */
     public static function e(?string $value): string

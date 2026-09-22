@@ -85,5 +85,5 @@ L'application heberge des donnees financieres personnelles. Les mesures en place
 
 - [x] Bloc 1 — Mise en place, base de donnees, squelette MVC
 - [x] Bloc 2 — Authentification
-- [ ] Bloc 3 — CRUD des tags et des operations
+- [x] Bloc 3 — CRUD des tags et des operations, navigation par jour / mois / annee
 - [ ] Bloc 4 — Camembert par pole, filtres, import CSV
