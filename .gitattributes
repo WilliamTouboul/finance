@@ -1,0 +1,28 @@
+# Fins de ligne : LF dans le depot, quel que soit le systeme de travail.
+#
+# Sans cette regle, Git sous Windows enregistre ce que lui donne l'editeur et
+# convertit selon core.autocrlf, dont la valeur depend de chaque poste. Le
+# depot finit par melanger les deux conventions, et un deploiement par FTP
+# vers un serveur Linux y envoie des CRLF -- qu'un shebang ou un en-tete HTTP
+# ne supportent pas.
+#
+# text=auto laisse Git detecter les fichiers texte ; eol=lf fixe ce qui est
+# stocke ET ce qui est ecrit sur le disque.
+* text=auto eol=lf
+
+# Scripts Windows : le CRLF y est obligatoire, cmd.exe ne lit pas autre chose.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaires : aucune conversion, elle les corromprait.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
