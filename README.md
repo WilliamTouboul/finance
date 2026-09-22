@@ -13,6 +13,18 @@ autoloader PSR-4 maison (`src/Core/Autoloader.php`).
 
 ## Installation
 
+Si PHP n'est pas dans le PATH, sous PowerShell une commande qui commence par un
+chemin entre guillemets doit etre prefixee par l'operateur d'appel `&`, sans
+quoi PowerShell la prend pour une simple chaine de caracteres :
+
+    & "C:\chemin\vers\php.exe" bin/migrate.php
+
+Plus commode pour une session de travail, ajouter le dossier de PHP au PATH
+le temps de la session :
+
+    $env:Path = "C:\chemin\vers\le\dossier\php;$env:Path"
+    php bin/migrate.php
+
 1. Copier la configuration :
 
        copy config\config.example.php config\config.php

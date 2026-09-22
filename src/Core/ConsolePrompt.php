@@ -26,27 +26,77 @@ final class ConsolePrompt
     /**
      * Saisie sans echo a l'ecran.
      *
-     * Le masquage repose sur stty, absent des consoles Windows natives. Quand
-     * il n'est pas disponible on le dit franchement plutot que de laisser
-     * croire que la saisie est masquee.
+     * Trois strategies, essayees dans l'ordre :
+     *   1. stty, sous Unix et macOS ;
+     *   2. Read-Host -AsSecureString, sous Windows ;
+     *   3. saisie visible, en le disant franchement.
+     *
+     * La voie stty ne sert jamais sous Windows, meme lance depuis Git Bash :
+     * PHP y execute exec() par cmd.exe, qui ne connait pas stty -- et quand
+     * bien meme, la commande agirait sur le terminal de cmd.exe et non sur
+     * celui qui recoit la frappe.
+     *
+     * Le dernier recours affiche un avertissement plutot que de laisser croire
+     * a un masquage : se tromper dans ce sens ferait taper un mot de passe en
+     * clair a quelqu'un qui se croit protege.
      */
     public static function askHidden(string $label): string
     {
-        if (!self::canHideInput()) {
-            self::warn('La saisie ne peut pas etre masquee dans ce terminal : le mot de passe restera visible a l ecran.');
+        if (self::hasStty()) {
+            echo $label . ' : ';
 
-            return self::ask($label);
+            shell_exec('stty -echo');
+            $value = trim((string) fgets(STDIN));
+            shell_exec('stty echo');
+
+            echo PHP_EOL;
+
+            return $value;
         }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $value = self::askHiddenWindows($label);
+
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        self::warn('La saisie ne peut pas etre masquee dans ce terminal : ce que vous tapez restera visible a l ecran.');
+
+        return self::ask($label);
+    }
+
+    /**
+     * Masquage via PowerShell sur les consoles Windows natives.
+     *
+     * Read-Host -AsSecureString masque la frappe ; la valeur est ensuite
+     * reconvertie en texte pour nous etre transmise par la sortie standard.
+     * Elle ne touche ni le disque ni l'historique des commandes.
+     *
+     * @return string|null null si PowerShell est indisponible ou echoue.
+     */
+    private static function askHiddenWindows(string $label): ?string
+    {
+        if (!function_exists('shell_exec')) {
+            return null;
+        }
+
+        $script = '$s = Read-Host -AsSecureString; '
+            . '[Runtime.InteropServices.Marshal]::PtrToStringAuto('
+            . '[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))';
 
         echo $label . ' : ';
 
-        shell_exec('stty -echo');
-        $value = trim((string) fgets(STDIN));
-        shell_exec('stty echo');
+        $value = shell_exec('powershell -NoProfile -NonInteractive:$false -Command ' . escapeshellarg($script));
 
-        echo PHP_EOL;
+        if (!is_string($value)) {
+            echo PHP_EOL;
 
-        return $value;
+            return null;
+        }
+
+        return trim($value);
     }
 
     public static function line(string $message = ''): void
@@ -71,17 +121,25 @@ final class ConsolePrompt
 
     /**
      * stty est-il utilisable ici ?
+     *
+     * La detection porte sur le code de retour et non sur le texte de sortie.
+     * Une premiere version cherchait la chaine "not found" : sous un Windows
+     * francais, le message est "n'est pas reconnu en tant que commande
+     * interne", donc la detection concluait que stty fonctionnait et le
+     * masquage n'avait jamais lieu -- en silence, ce qui est le pire cas pour
+     * une saisie de mot de passe. Un code de retour ne parle aucune langue.
      */
-    private static function canHideInput(): bool
+    private static function hasStty(): bool
     {
-        if (!function_exists('shell_exec')) {
+        if (!function_exists('exec')) {
             return false;
         }
 
-        $probe = shell_exec('stty -g 2>&1');
+        $output   = [];
+        $exitCode = 1;
 
-        // Sur un terminal compatible, stty -g renvoie la configuration
-        // courante. Ailleurs il renvoie null ou un message d'erreur.
-        return is_string($probe) && $probe !== '' && !str_contains(strtolower($probe), 'not found');
+        exec('stty -g 2>&1', $output, $exitCode);
+
+        return $exitCode === 0;
     }
 }
