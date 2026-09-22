@@ -68,6 +68,9 @@ le temps de la session :
   `0.1 + 0.2 !== 0.3` en binaire, et une erreur d'arrondi sur des comptes est inacceptable.
 - Negatif = depense, positif = recette.
 - `occurred_on` est la date reelle de l'operation, distincte de `created_at`.
+- Une operation porte autant de tags que voulu, mais un seul **tag principal**, qui
+  porte son montant dans la repartition par pole. Sans cette regle, une operation a
+  deux tags compterait deux fois et le camembert depasserait les depenses reelles.
 - Toute valeur affichee dans un gabarit passe par `View::e()`.
 - Tout formulaire POST embarque un jeton CSRF via `Csrf::field()`.
 
@@ -108,4 +111,5 @@ ecrivait `Auth->attempt('vous@exemple.fr', 'VotreMotDePa...')` dans le journal.
 - [x] Bloc 1 — Mise en place, base de donnees, squelette MVC
 - [x] Bloc 2 — Authentification
 - [x] Bloc 3 — CRUD des tags et des operations, navigation par jour / mois / annee
-- [ ] Bloc 4 — Camembert par pole, filtres, import CSV
+- [x] Bloc 4 — Camembert par pole, recherche et filtres, export CSV
+- [ ] Bloc 5 — Import CSV, operations recurrentes, courbe du solde

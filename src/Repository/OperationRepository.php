@@ -7,6 +7,7 @@ namespace App\Repository;
 use App\Core\Database;
 use App\Core\Period;
 use App\Model\Operation;
+use App\Model\OperationFilter;
 use App\Model\Tag;
 use DateTimeImmutable;
 use PDO;
@@ -19,40 +20,25 @@ use PDO;
  */
 final class OperationRepository
 {
-    private const COLUMNS = 'id, label, amount_cents, occurred_on, note';
+    private const COLUMNS = 'id, label, amount_cents, occurred_on, note, primary_tag_id';
 
     /**
-     * Les operations d'une periode, de la plus recente a la plus ancienne.
+     * Les operations repondant aux criteres, de la plus recente a la plus ancienne.
      *
-     * Le filtre porte sur des bornes de dates et jamais sur YEAR() ou MONTH() :
+     * Le filtre de dates porte sur des bornes et jamais sur YEAR() ou MONTH() :
      * une fonction appliquee a occurred_on empecherait MySQL de se servir de
      * l'index (user_id, occurred_on, id) et le forcerait a lire toute la table.
      *
      * @return array<int, Operation>
      */
-    public function listForPeriod(int $userId, Period $period, ?int $tagId = null): array
+    public function findBy(int $userId, OperationFilter $filter): array
     {
-        $params = [];
-        $join   = '';
-
-        // Le filtre par tag passe par une jointure sur la table de liaison.
-        // Son marqueur est ajoute EN PREMIER : les parametres positionnels se
-        // lient dans l'ordre d'apparition dans la requete, et le JOIN precede
-        // le WHERE. Les ajouter dans l'ordre des arguments les decalerait tous.
-        if ($tagId !== null) {
-            $join     = ' JOIN operation_tag ot ON ot.operation_id = o.id AND ot.tag_id = ?';
-            $params[] = $tagId;
-        }
-
-        $params[] = $userId;
-        $params[] = $period->startSql();
-        $params[] = $period->endSql();
+        [$where, $params, $join] = $this->buildCriteria($userId, $filter);
 
         $rows = Database::all(
-            'SELECT o.id, o.label, o.amount_cents, o.occurred_on, o.note
+            'SELECT DISTINCT o.id, o.label, o.amount_cents, o.occurred_on, o.note, o.primary_tag_id
                FROM operations o' . $join . '
-              WHERE o.user_id = ?
-                AND o.occurred_on BETWEEN ? AND ?
+              WHERE ' . $where . '
               ORDER BY o.occurred_on DESC, o.id DESC',
             $params
         );
@@ -61,26 +47,72 @@ final class OperationRepository
     }
 
     /**
-     * Les dernieres operations saisies, toutes periodes confondues.
+     * Entrees et sorties pour les memes criteres.
      *
-     * @return array<int, Operation>
+     * Les deux totaux sont calcules en une passe avec des CASE plutot qu'en
+     * deux requetes : la table n'est parcourue qu'une fois.
+     *
+     * @return array{income: int, expense: int}
      */
-    public function recent(int $userId, int $limit = 10): array
+    public function totalsFor(int $userId, OperationFilter $filter): array
     {
-        // LIMIT n'accepte pas de parametre prepare sous MySQL : la valeur est
-        // forcee en entier puis bornee avant d'etre interpolee.
-        $limit = max(1, min(100, $limit));
+        [$where, $params, $join] = $this->buildCriteria($userId, $filter);
 
-        $rows = Database::all(
-            'SELECT ' . self::COLUMNS . '
-               FROM operations
-              WHERE user_id = ?
-              ORDER BY occurred_on DESC, id DESC
-              LIMIT ' . $limit,
-            [$userId]
+        // DISTINCT indispensable : la jointure sur les tags duplique une
+        // operation portant plusieurs des tags filtres, et son montant serait
+        // alors compte autant de fois.
+        $row = Database::one(
+            'SELECT
+                COALESCE(SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0) AS expense
+               FROM (
+                   SELECT DISTINCT o.id, o.amount_cents
+                     FROM operations o' . $join . '
+                    WHERE ' . $where . '
+               ) AS t',
+            $params
         );
 
-        return $this->hydrateWithTags($rows);
+        return [
+            'income'  => (int) ($row['income'] ?? 0),
+            'expense' => (int) ($row['expense'] ?? 0),
+        ];
+    }
+
+    /**
+     * Depenses de la periode reparties par tag principal.
+     *
+     * C'est la source du camembert. Seul le tag principal compte : sans cela,
+     * une operation portant deux tags serait comptee dans chacun et le total
+     * des parts depasserait les depenses reelles.
+     *
+     * LEFT JOIN : une depense sans tag principal doit apparaitre malgre tout,
+     * regroupee sous "Non classe", sinon le camembert ne totaliserait pas les
+     * depenses de la periode.
+     *
+     * @return array<int, array{tag: Tag|null, total: int}> montants positifs, tries decroissant.
+     */
+    public function expensesByPrimaryTag(int $userId, Period $period): array
+    {
+        $rows = Database::all(
+            'SELECT t.id, t.name, t.color, SUM(-o.amount_cents) AS total
+               FROM operations o
+               LEFT JOIN tags t ON t.id = o.primary_tag_id
+              WHERE o.user_id = ?
+                AND o.occurred_on BETWEEN ? AND ?
+                AND o.amount_cents < 0
+              GROUP BY t.id, t.name, t.color
+              ORDER BY total DESC',
+            [$userId, $period->startSql(), $period->endSql()]
+        );
+
+        return array_map(
+            static fn (array $row): array => [
+                'tag'   => $row['id'] === null ? null : Tag::fromRow($row),
+                'total' => (int) $row['total'],
+            ],
+            $rows
+        );
     }
 
     public function find(int $id, int $userId): ?Operation
@@ -114,13 +146,21 @@ final class OperationRepository
         DateTimeImmutable $occurredOn,
         ?string $note,
         array $tagIds,
+        ?int $primaryTagId = null,
     ): int {
-        return (int) Database::transaction(function (PDO $pdo) use ($userId, $label, $amountCents, $occurredOn, $note, $tagIds): int {
+        return (int) Database::transaction(function (PDO $pdo) use ($userId, $label, $amountCents, $occurredOn, $note, $tagIds, $primaryTagId): int {
             $statement = $pdo->prepare(
-                'INSERT INTO operations (user_id, label, amount_cents, occurred_on, note)
-                 VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO operations (user_id, label, amount_cents, occurred_on, note, primary_tag_id)
+                 VALUES (?, ?, ?, ?, ?, ?)'
             );
-            $statement->execute([$userId, $label, $amountCents, $occurredOn->format('Y-m-d'), $note]);
+            $statement->execute([
+                $userId,
+                $label,
+                $amountCents,
+                $occurredOn->format('Y-m-d'),
+                $note,
+                self::resolvePrimaryTag($tagIds, $primaryTagId),
+            ]);
 
             $operationId = (int) $pdo->lastInsertId();
 
@@ -141,14 +181,23 @@ final class OperationRepository
         DateTimeImmutable $occurredOn,
         ?string $note,
         array $tagIds,
+        ?int $primaryTagId = null,
     ): void {
-        Database::transaction(function (PDO $pdo) use ($id, $userId, $label, $amountCents, $occurredOn, $note, $tagIds): void {
+        Database::transaction(function (PDO $pdo) use ($id, $userId, $label, $amountCents, $occurredOn, $note, $tagIds, $primaryTagId): void {
             $statement = $pdo->prepare(
                 'UPDATE operations
-                    SET label = ?, amount_cents = ?, occurred_on = ?, note = ?
+                    SET label = ?, amount_cents = ?, occurred_on = ?, note = ?, primary_tag_id = ?
                   WHERE id = ? AND user_id = ?'
             );
-            $statement->execute([$label, $amountCents, $occurredOn->format('Y-m-d'), $note, $id, $userId]);
+            $statement->execute([
+                $label,
+                $amountCents,
+                $occurredOn->format('Y-m-d'),
+                $note,
+                self::resolvePrimaryTag($tagIds, $primaryTagId),
+                $id,
+                $userId,
+            ]);
 
             // Les liaisons sont remplacees en bloc plutot que comparees une a
             // une : sur une poignee de tags, la difference de cout est nulle et
@@ -183,42 +232,6 @@ final class OperationRepository
     }
 
     /**
-     * Entrees et sorties de la periode.
-     *
-     * Les deux totaux sont calcules en une seule passe avec des CASE plutot
-     * qu'en deux requetes : la table n'est parcourue qu'une fois.
-     *
-     * @return array{income: int, expense: int}
-     */
-    public function totalsForPeriod(int $userId, Period $period): array
-    {
-        $row = Database::one(
-            'SELECT
-                COALESCE(SUM(CASE WHEN amount_cents > 0 THEN amount_cents ELSE 0 END), 0) AS income,
-                COALESCE(SUM(CASE WHEN amount_cents < 0 THEN amount_cents ELSE 0 END), 0) AS expense
-               FROM operations
-              WHERE user_id = ? AND occurred_on BETWEEN ? AND ?',
-            [$userId, $period->startSql(), $period->endSql()]
-        );
-
-        return [
-            'income'  => (int) ($row['income'] ?? 0),
-            // Deja negatif en base : on le garde tel quel pour rester coherent
-            // avec la convention du projet.
-            'expense' => (int) ($row['expense'] ?? 0),
-        ];
-    }
-
-    public function countForPeriod(int $userId, Period $period): int
-    {
-        return (int) Database::value(
-            'SELECT COUNT(*) FROM operations
-              WHERE user_id = ? AND occurred_on BETWEEN ? AND ?',
-            [$userId, $period->startSql(), $period->endSql()]
-        );
-    }
-
-    /**
      * Annee de la toute premiere operation, pour borner le selecteur d'annee.
      */
     public function firstYear(int $userId): ?int
@@ -226,6 +239,92 @@ final class OperationRepository
         $value = Database::value('SELECT MIN(occurred_on) FROM operations WHERE user_id = ?', [$userId]);
 
         return is_string($value) ? (int) substr($value, 0, 4) : null;
+    }
+
+    /**
+     * Assemble la clause WHERE, ses parametres et la jointure eventuelle.
+     *
+     * Les parametres sont empiles dans l'ordre exact ou leurs marqueurs
+     * apparaissent dans la requete : les parametres positionnels se lient par
+     * position, et un JOIN precede toujours le WHERE. Les ranger dans l'ordre
+     * des arguments de la methode les decalerait tous.
+     *
+     * @return array{0: string, 1: array<int, mixed>, 2: string}
+     */
+    private function buildCriteria(int $userId, OperationFilter $filter): array
+    {
+        $params = [];
+        $join   = '';
+
+        if ($filter->tagIds !== []) {
+            $placeholders = implode(', ', array_fill(0, count($filter->tagIds), '?'));
+            $join = " JOIN operation_tag ot ON ot.operation_id = o.id AND ot.tag_id IN ({$placeholders})";
+            $params = array_merge($params, $filter->tagIds);
+        }
+
+        $where    = ['o.user_id = ?', 'o.occurred_on BETWEEN ? AND ?'];
+        $params[] = $userId;
+        $params[] = $filter->period->startSql();
+        $params[] = $filter->period->endSql();
+
+        if ($filter->search !== '') {
+            $where[]  = '(o.label LIKE ? OR o.note LIKE ?)';
+            // Les caracteres speciaux de LIKE sont neutralises : sans cela, un
+            // "%" saisi dans la recherche ferait tout remonter.
+            $needle   = '%' . self::escapeLike($filter->search) . '%';
+            $params[] = $needle;
+            $params[] = $needle;
+        }
+
+        if ($filter->direction === OperationFilter::DIRECTION_EXPENSE) {
+            $where[] = 'o.amount_cents < 0';
+        } elseif ($filter->direction === OperationFilter::DIRECTION_INCOME) {
+            $where[] = 'o.amount_cents > 0';
+        }
+
+        // La fourchette porte sur la valeur absolue : l'utilisateur raisonne en
+        // "entre 20 et 50 euros", sans se soucier du signe.
+        if ($filter->minCents !== null) {
+            $where[]  = 'ABS(o.amount_cents) >= ?';
+            $params[] = $filter->minCents;
+        }
+
+        if ($filter->maxCents !== null) {
+            $where[]  = 'ABS(o.amount_cents) <= ?';
+            $params[] = $filter->maxCents;
+        }
+
+        return [implode(' AND ', $where), $params, $join];
+    }
+
+    /**
+     * Neutralise les jokers de LIKE dans une saisie utilisateur.
+     */
+    private static function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    /**
+     * Le tag principal doit figurer parmi les tags de l'operation.
+     *
+     * Aucune contrainte SQL ne l'exprime, c'est donc verifie ici. A defaut de
+     * choix valide, le premier tag fait l'affaire : une operation taggee doit
+     * toujours peser sur un pole, sinon elle disparaitrait du camembert.
+     *
+     * @param array<int, int> $tagIds
+     */
+    private static function resolvePrimaryTag(array $tagIds, ?int $primaryTagId): ?int
+    {
+        if ($tagIds === []) {
+            return null;
+        }
+
+        if ($primaryTagId !== null && in_array($primaryTagId, $tagIds, true)) {
+            return $primaryTagId;
+        }
+
+        return $tagIds[0];
     }
 
     /**

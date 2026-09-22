@@ -12,13 +12,14 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Model\Operation;
+use App\Model\OperationFilter;
 use App\Repository\OperationRepository;
 use App\Repository\TagRepository;
 use App\Service\Auth;
 use DateTimeImmutable;
 
 /**
- * Saisie et consultation des operations.
+ * Saisie, consultation et export des operations.
  *
  * Le montant se saisit en valeur absolue, accompagne d'un sens (depense ou
  * recette). Un champ unique ou le signe porterait le sens serait plus court a
@@ -46,18 +47,47 @@ final class OperationController extends BaseController
     public function index(Request $request): Response
     {
         $user   = $this->requireUser();
-        $period = Period::fromParam($request->query('p'));
-
-        $tagFilter = $this->resolveTagFilter($request, $user->id);
+        $filter = $this->buildFilter($request, $user->id);
 
         return $this->view('operations/index', [
             'pageTitle'  => 'Opérations',
-            'period'     => $period,
-            'operations' => $this->operations->listForPeriod($user->id, $period, $tagFilter),
-            'totals'     => $this->operations->totalsForPeriod($user->id, $period),
+            'filter'     => $filter,
+            'period'     => $filter->period,
+            'operations' => $this->operations->findBy($user->id, $filter),
+            'totals'     => $this->operations->totalsFor($user->id, $filter),
             'allTags'    => $this->tags->allForUser($user->id),
-            'tagFilter'  => $tagFilter,
         ]);
+    }
+
+    /**
+     * Export CSV de ce qui est affiche, filtres compris.
+     *
+     * La reponse est construite en memoire plutot que diffusee au fil de l'eau :
+     * un export de finances personnelles reste de l'ordre de quelques milliers
+     * de lignes, et une reponse complete permet d'annoncer sa taille.
+     */
+    public function export(Request $request): Response
+    {
+        $user   = $this->requireUser();
+        $filter = $this->buildFilter($request, $user->id);
+
+        $rows = [['Date', 'Libellé', 'Montant', 'Pôle principal', 'Tags', 'Note']];
+
+        foreach ($this->operations->findBy($user->id, $filter) as $operation) {
+            $rows[] = [
+                $operation->occurredOn->format('d/m/Y'),
+                $operation->label,
+                // Virgule decimale : c'est ce qu'attend un tableur configure en francais.
+                Money::format($operation->amountCents, false),
+                $operation->primaryTag()?->name ?? '',
+                implode(', ', array_map(static fn ($t): string => $t->name, $operation->tags)),
+                $operation->note ?? '',
+            ];
+        }
+
+        $filename = 'operations-' . $filter->period->toParam() . '.csv';
+
+        return Response::csv(self::toCsv($rows), $filename);
     }
 
     public function create(Request $request): Response
@@ -94,13 +124,16 @@ final class OperationController extends BaseController
             ], 422);
         }
 
+        $tagIds = $this->tags->keepOwned($user->id, $values['tags']);
+
         $this->operations->create(
             $user->id,
             $values['label'],
             $this->signedAmount($values),
             new DateTimeImmutable($values['date']),
             $values['note'] === '' ? null : $values['note'],
-            $this->tags->keepOwned($user->id, $values['tags']),
+            $tagIds,
+            $values['primaryTag'],
         );
 
         Session::flash('success', "« {$values['label']} » a été enregistré.");
@@ -152,6 +185,8 @@ final class OperationController extends BaseController
             ], 422);
         }
 
+        $tagIds = $this->tags->keepOwned($user->id, $values['tags']);
+
         $this->operations->update(
             $operation->id,
             $user->id,
@@ -159,7 +194,8 @@ final class OperationController extends BaseController
             $this->signedAmount($values),
             new DateTimeImmutable($values['date']),
             $values['note'] === '' ? null : $values['note'],
-            $this->tags->keepOwned($user->id, $values['tags']),
+            $tagIds,
+            $values['primaryTag'],
         );
 
         Session::flash('success', 'Opération mise à jour.');
@@ -188,40 +224,64 @@ final class OperationController extends BaseController
     }
 
     /**
-     * Identifiant du tag servant de filtre, ou null.
+     * Assemble les criteres en ne retenant que des tags appartenant a l'utilisateur.
      *
-     * Verifie que le tag appartient bien a l'utilisateur : sinon un numero
-     * saisi dans l'URL revelerait, par le simple fait de filtrer, l'existence
-     * du tag d'un autre compte.
+     * Les identifiants viennent de l'URL : un numero quelconque y filtrerait
+     * sinon sur le tag d'un autre compte, et la simple presence ou absence de
+     * resultats en revelerait l'existence.
      */
-    private function resolveTagFilter(Request $request, int $userId): ?int
+    private function buildFilter(Request $request, int $userId): OperationFilter
     {
-        $raw = $request->query('tag');
+        $requested = array_map('intval', $request->queryArray('tags'));
 
-        if ($raw === null || !ctype_digit($raw)) {
-            return null;
-        }
-
-        return $this->tags->find((int) $raw, $userId)?->id;
+        return OperationFilter::fromRequest($request, $this->tags->keepOwned($userId, $requested));
     }
 
     /**
-     * @return array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>}
+     * Convertit un tableau de lignes en CSV.
+     *
+     * Deux choix imposes par Excel, qui reste l'outil le plus probable en face :
+     * le point-virgule comme separateur, et une marque d'ordre des octets en
+     * tete de fichier. Sans elle, Excel lit le fichier dans l'encodage du
+     * systeme et transforme tous les accents en charabia.
+     *
+     * @param array<int, array<int, string>> $rows
+     */
+    private static function toCsv(array $rows): string
+    {
+        $handle = fopen('php://temp', 'r+');
+
+        foreach ($rows as $row) {
+            fputcsv($handle, $row, ';', '"', '\\');
+        }
+
+        rewind($handle);
+        $csv = (string) stream_get_contents($handle);
+        fclose($handle);
+
+        return "\u{FEFF}" . $csv;
+    }
+
+    /**
+     * @return array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>, primaryTag: int|null}
      */
     private function readValues(Request $request): array
     {
+        $primary = $request->input('primary_tag');
+
         return [
-            'label'     => (string) $request->input('label', ''),
-            'amount'    => (string) $request->input('amount', ''),
-            'direction' => $request->input('direction') === 'income' ? 'income' : 'expense',
-            'date'      => (string) $request->input('date', ''),
-            'note'      => (string) $request->input('note', ''),
-            'tags'      => array_map('intval', $request->inputArray('tags')),
+            'label'      => (string) $request->input('label', ''),
+            'amount'     => (string) $request->input('amount', ''),
+            'direction'  => $request->input('direction') === 'income' ? 'income' : 'expense',
+            'date'       => (string) $request->input('date', ''),
+            'note'       => (string) $request->input('note', ''),
+            'tags'       => array_map('intval', $request->inputArray('tags')),
+            'primaryTag' => $primary !== null && ctype_digit($primary) ? (int) $primary : null,
         ];
     }
 
     /**
-     * @return array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>}
+     * @return array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>, primaryTag: int|null}
      */
     private function defaultValues(Request $request): array
     {
@@ -231,27 +291,29 @@ final class OperationController extends BaseController
         $today  = new DateTimeImmutable();
 
         return [
-            'label'     => '',
-            'amount'    => '',
-            'direction' => 'expense',
-            'date'      => $period->isCurrent() ? $today->format('Y-m-d') : $period->endSql(),
-            'note'      => '',
-            'tags'      => [],
+            'label'      => '',
+            'amount'     => '',
+            'direction'  => 'expense',
+            'date'       => $period->isCurrent() ? $today->format('Y-m-d') : $period->endSql(),
+            'note'       => '',
+            'tags'       => [],
+            'primaryTag' => null,
         ];
     }
 
     /**
-     * @return array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>}
+     * @return array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>, primaryTag: int|null}
      */
     private function valuesFrom(Operation $operation): array
     {
         return [
-            'label'     => $operation->label,
-            'amount'    => Money::toInput(abs($operation->amountCents)),
-            'direction' => $operation->isIncome() ? 'income' : 'expense',
-            'date'      => $operation->occurredOn->format('Y-m-d'),
-            'note'      => $operation->note ?? '',
-            'tags'      => $operation->tagIds(),
+            'label'      => $operation->label,
+            'amount'     => Money::toInput(abs($operation->amountCents)),
+            'direction'  => $operation->isIncome() ? 'income' : 'expense',
+            'date'       => $operation->occurredOn->format('Y-m-d'),
+            'note'       => $operation->note ?? '',
+            'tags'       => $operation->tagIds(),
+            'primaryTag' => $operation->primaryTagId,
         ];
     }
 

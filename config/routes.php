@@ -29,6 +29,7 @@ return static function (Router $router): void {
     $router->get('/', [DashboardController::class, 'index']);
 
     $router->get('/operations',                   [OperationController::class, 'index']);
+    $router->get('/operations/export',            [OperationController::class, 'export']);
     $router->get('/operations/nouvelle',          [OperationController::class, 'create']);
     $router->post('/operations',                  [OperationController::class, 'store']);
     $router->get('/operations/{id}/modifier',     [OperationController::class, 'edit']);

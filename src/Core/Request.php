@@ -56,6 +56,25 @@ final class Request
     }
 
     /**
+     * Valeurs multiples passees dans l'URL, comme ?tags[]=1&tags[]=2.
+     *
+     * @return array<int, string>
+     */
+    public function queryArray(string $key): array
+    {
+        $value = $this->query[$key] ?? null;
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            self::toUtf8(...),
+            array_filter($value, 'is_string')
+        ));
+    }
+
+    /**
      * Valeurs multiples d'un champ de formulaire (cases a cocher, select multiple).
      *
      * @return array<int, string>

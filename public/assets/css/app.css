@@ -972,3 +972,233 @@ textarea.field__input {
         justify-content: center;
     }
 }
+
+/* ==========================================================================
+   Bloc 4 — camembert, filtres, export
+   ========================================================================== */
+
+/* ---------------------------------------------------------- Camembert */
+
+.pie-layout {
+    display: flex;
+    align-items: center;
+    gap: var(--space-7);
+    padding: var(--space-5);
+    flex-wrap: wrap;
+}
+
+.pie-layout__chart {
+    flex: 0 0 auto;
+}
+
+.pie {
+    display: block;
+}
+
+.pie__slice {
+    transition: opacity 0.12s;
+}
+
+.pie a:hover .pie__slice,
+.pie a:focus-visible .pie__slice {
+    opacity: 0.75;
+}
+
+.pie a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.panel__note {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------- Légende */
+
+.legend {
+    flex: 1 1 260px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.legend__item {
+    display: grid;
+    grid-template-columns: 10px 1fr auto auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.legend__item:last-child {
+    border-bottom: none;
+}
+
+.legend__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.legend__label a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.legend__label a:hover {
+    text-decoration: underline;
+}
+
+.legend__share {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.legend__value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- Filtres */
+
+.filters {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-5);
+}
+
+.filters__row {
+    display: flex;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filters__row .field {
+    margin-bottom: 0;
+}
+
+.field--narrow {
+    flex: 0 0 120px;
+}
+
+.filters__tags {
+    margin-top: var(--space-4);
+}
+
+.filters__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+}
+
+select.field__input {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                      linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+    background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 2rem;
+}
+
+.page-head__actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-shrink: 0;
+}
+
+/* ------------------------------------------- Choix du pôle principal */
+
+.tag-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.tag-primary {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 0 2px;
+}
+
+.tag-primary input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tag-primary__star {
+    font-size: 0.875rem;
+    line-height: 1;
+    color: var(--border-strong);
+    transition: color 0.12s;
+}
+
+.tag-primary:hover .tag-primary__star {
+    color: var(--text-muted);
+}
+
+.tag-primary input:checked + .tag-primary__star {
+    color: #E8A317;
+}
+
+.tag-primary input:focus-visible + .tag-primary__star {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/*
+ * L'étoile ne se propose qu'en face d'un tag coché : désigner comme principal
+ * un tag qui n'est pas sur l'opération n'aurait aucun sens.
+ *
+ * Fait en CSS pur via :has(), donc sans JavaScript. Sur un navigateur qui
+ * ignore :has(), toutes les étoiles restent visibles — le formulaire reste
+ * utilisable, et le serveur corrige de toute façon un choix incohérent.
+ */
+.tag-choice:not(:has(input[type="checkbox"]:checked)) .tag-primary {
+    visibility: hidden;
+}
+
+/* ------------------------------------------------------ Accessibilité */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --------------------------------------------------------- Responsive */
+
+@media (max-width: 720px) {
+    .pie-layout {
+        justify-content: center;
+        gap: var(--space-5);
+    }
+
+    .page-head__actions {
+        width: 100%;
+    }
+
+    .filters__row .field {
+        flex: 1 1 100%;
+    }
+
+    .field--narrow {
+        flex: 1 1 calc(50% - var(--space-4));
+    }
+}

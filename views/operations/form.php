@@ -4,7 +4,7 @@
  *
  * @var \App\Model\Operation|null $operation null en creation
  * @var array<int, \App\Model\Tag> $allTags
- * @var array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>} $values
+ * @var array{label: string, amount: string, direction: string, date: string, note: string, tags: array<int, int>, primaryTag: int|null} $values
  * @var array<int, string> $errors
  */
 
@@ -103,22 +103,46 @@ $action = $isEdit ? '/operations/' . $operation->id : '/operations';
                 Aucun tag pour le moment. <a href="/tags">Créez-en un</a> pour classer vos opérations par pôle.
             </p>
         <?php else: ?>
+            <?php
+            // L'etoile designe le pole qui portera le montant dans le camembert.
+            // Elle n'apparait qu'en face d'un tag coche, grace au selecteur CSS
+            // :has() -- sans une ligne de JavaScript. Si aucune etoile n'est
+            // choisie, le serveur retient le premier tag coche.
+            ?>
             <div class="tag-picker">
                 <?php foreach ($allTags as $tag): ?>
-                    <label class="tag-pick">
-                        <input
-                            type="checkbox"
-                            name="tags[]"
-                            value="<?= (int) $tag->id ?>"
-                            <?= in_array($tag->id, $values['tags'], true) ? 'checked' : '' ?>>
-                        <span
-                            class="tag-pick__badge"
-                            style="--tag-color: <?= View::e($tag->color) ?>; --tag-text: <?= View::e($tag->readableTextColor()) ?>"
-                        ><?= View::e($tag->name) ?></span>
-                    </label>
+                    <?php $checked = in_array($tag->id, $values['tags'], true); ?>
+                    <div class="tag-choice">
+                        <label class="tag-pick">
+                            <input
+                                type="checkbox"
+                                name="tags[]"
+                                value="<?= (int) $tag->id ?>"
+                                <?= $checked ? 'checked' : '' ?>>
+                            <span
+                                class="tag-pick__badge"
+                                style="--tag-color: <?= View::e($tag->color) ?>; --tag-text: <?= View::e($tag->readableTextColor()) ?>"
+                            ><?= View::e($tag->name) ?></span>
+                        </label>
+
+                        <label class="tag-primary" title="Pôle principal : celui qui portera le montant">
+                            <input
+                                type="radio"
+                                name="primary_tag"
+                                value="<?= (int) $tag->id ?>"
+                                <?= $values['primaryTag'] === $tag->id ? 'checked' : '' ?>>
+                            <span class="tag-primary__star" aria-hidden="true">★</span>
+                            <span class="visually-hidden">Définir « <?= View::e($tag->name) ?> » comme pôle principal</span>
+                        </label>
+                    </div>
                 <?php endforeach; ?>
             </div>
-            <p class="field__hint">Plusieurs tags possibles sur une même opération.</p>
+
+            <p class="field__hint">
+                Plusieurs tags possibles. L'étoile désigne le pôle qui portera le montant
+                dans la répartition des dépenses — sans quoi une opération à deux tags
+                serait comptée deux fois.
+            </p>
         <?php endif; ?>
     </div>
 

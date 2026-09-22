@@ -6,6 +6,8 @@
  * @var array<int, \App\Model\Operation> $operations
  * @var int                              $totalCount
  * @var int                              $previewSize
+ * @var \App\Core\PieChart               $pie
+ * @var array<int, array<string, mixed>> $slices
  */
 
 use App\Core\Money;
@@ -39,6 +41,41 @@ use App\Core\View;
         <p class="stat__hint stat__hint--period"><?= View::e($period->label()) ?></p>
     </article>
 </section>
+
+<?php if ($slices !== []): ?>
+    <section class="panel">
+        <div class="panel__head">
+            <h2 class="panel__title">Dépenses par pôle</h2>
+            <span class="panel__note">Selon le tag principal de chaque opération</span>
+        </div>
+
+        <div class="pie-layout">
+            <div class="pie-layout__chart">
+                <?php /* SVG produit par PieChart, qui echappe deja ses propres valeurs. */ ?>
+                <?= $pie->render($slices) ?>
+            </div>
+
+            <ul class="legend">
+                <?php foreach ($slices as $slice): ?>
+                    <li class="legend__item">
+                        <span class="legend__dot" style="background: <?= View::e($slice['color']) ?>"></span>
+
+                        <span class="legend__label">
+                            <?php if ($slice['link'] !== null): ?>
+                                <a href="<?= View::e($slice['link']) ?>"><?= View::e($slice['label']) ?></a>
+                            <?php else: ?>
+                                <?= View::e($slice['label']) ?>
+                            <?php endif; ?>
+                        </span>
+
+                        <span class="legend__share"><?= View::e($pie->formatShare($slice['share'])) ?></span>
+                        <span class="legend__value amount"><?= View::e(Money::format($slice['value'])) ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </section>
+<?php endif; ?>
 
 <section class="panel">
     <div class="panel__head">

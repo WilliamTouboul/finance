@@ -47,7 +47,7 @@ foreach ($operations as $operation) {
 
                             <?php if ($operation->tags !== []): ?>
                                 <span class="op__tags">
-                                    <?php foreach ($operation->tags as $tag): ?>
+                                    <?php foreach ($operation->tagsPrimaryFirst() as $tag): ?>
                                         <span
                                             class="tag-badge"
                                             style="background: <?= View::e($tag->color) ?>; color: <?= View::e($tag->readableTextColor()) ?>"
