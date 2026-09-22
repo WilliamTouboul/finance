@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 /**
- * Change le mot de passe d un compte existant.
+ * Definit un nouveau mot de passe pour un compte existant.
  *
- * Usage : php bin/reset-password.php
+ * Usage : php bin/set-password.php
  *
  * L'application ne propose pas de procedure de mot de passe oublie : elle
  * supposerait l'envoi d'e-mails et une gestion de jetons de reinitialisation,
@@ -13,7 +13,6 @@ declare(strict_types=1);
  * toute facon acces au serveur. Ce script tient ce role.
  */
 
-use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\ConsolePrompt as Prompt;
 use App\Core\Database;
@@ -27,10 +26,8 @@ if (PHP_SAPI !== 'cli') {
 
 const MIN_PASSWORD_LENGTH = 12;
 
-$root = dirname(__DIR__);
-
-require $root . '/src/Core/Autoloader.php';
-Autoloader::register($root . '/src');
+// Autoload, journalisation et masquage des arguments dans les traces.
+$root = require dirname(__DIR__) . '/config/bootstrap.php';
 
 try {
     Config::load($root . '/config/config.php');

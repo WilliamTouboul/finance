@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\NotFoundException;
 use App\Core\Request;
@@ -13,10 +12,8 @@ use App\Core\UnauthorizedException;
 use App\Core\View;
 use App\Service\Auth;
 
-$root = dirname(__DIR__);
-
-require $root . '/src/Core/Autoloader.php';
-Autoloader::register($root . '/src');
+// Autoload, journalisation et masquage des arguments dans les traces.
+$root = require dirname(__DIR__) . '/config/bootstrap.php';
 
 try {
     Config::load($root . '/config/config.php');
@@ -32,11 +29,7 @@ try {
 // l'arborescence du serveur et parfois des identifiants.
 $isDev = Config::isDev();
 ini_set('display_errors', $isDev ? '1' : '0');
-ini_set('log_errors', '1');
-ini_set('error_log', $root . '/var/log/php-error.log');
-error_reporting(E_ALL);
 
-date_default_timezone_set('Europe/Paris');
 View::setViewPath($root . '/views');
 
 Session::start();

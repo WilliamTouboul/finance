@@ -49,7 +49,7 @@ le temps de la session :
 |---------------------------|-------------------------------------------------|
 | `bin/migrate.php`         | Applique les migrations SQL non encore jouees   |
 | `bin/create-user.php`     | Cree un compte (seul moyen : pas d'inscription) |
-| `bin/reset-password.php`  | Change le mot de passe d'un compte existant     |
+| `bin/set-password.php`    | Definit un nouveau mot de passe sur un compte         |
 
 ## Arborescence
 
@@ -86,6 +86,16 @@ L'application heberge des donnees financieres personnelles. Les mesures en place
 | Force brute                       | Verrouillage 15 min au-dela de 10 echecs par IP ou 20 par compte     |
 | Enumeration des comptes           | Message unique + verification factice a temps constant               |
 | Exposition du code source         | Seul `public/` est expose, la configuration est hors docroot         |
+| Fuite par les traces d'erreur     | Arguments retires des traces (`zend.exception_ignore_args`)          |
+| Encodage des entrees              | Normalisation UTF-8 a la lecture de la requete                       |
+
+Le mot de passe en clair n'existe que le temps de sa verification. Il n'est
+jamais journalise, ni renvoye dans un formulaire, ni place dans une URL, ni
+stocke en session, ni accepte en argument de ligne de commande. Le point le
+moins evident est celui des traces d'erreur : par defaut PHP y joint les
+arguments de chaque appel, si bien qu'une panne survenue pendant une connexion
+ecrivait `Auth->attempt('vous@exemple.fr', 'VotreMotDePa...')` dans le journal.
+`config/bootstrap.php` desactive ce comportement pour tous les points d'entree.
 
 ### Avant une mise en ligne
 

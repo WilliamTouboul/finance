@@ -11,7 +11,6 @@ declare(strict_types=1);
  * `migrations` garde la trace de ce qui a deja ete applique.
  */
 
-use App\Core\Autoloader;
 use App\Core\Config;
 use App\Core\Database;
 
@@ -20,10 +19,8 @@ if (PHP_SAPI !== 'cli') {
     exit("Ce script s'execute uniquement en ligne de commande.\n");
 }
 
-$root = dirname(__DIR__);
-
-require $root . '/src/Core/Autoloader.php';
-Autoloader::register($root . '/src');
+// Autoload, journalisation et masquage des arguments dans les traces.
+$root = require dirname(__DIR__) . '/config/bootstrap.php';
 
 try {
     Config::load($root . '/config/config.php');
