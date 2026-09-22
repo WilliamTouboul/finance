@@ -1,0 +1,18 @@
+# Configuration locale (contient les identifiants DB)
+/config/config.php
+
+# Donnees runtime : on ignore le contenu de var/ mais on conserve
+# l'arborescence, sinon var/log/ n'existerait pas apres un clone et
+# l'ecriture du journal d'erreurs echouerait en silence.
+/var/*
+!/var/log/
+/var/log/*
+!/var/log/.gitkeep
+
+# OS / editeurs
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp

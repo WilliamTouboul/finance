@@ -1,0 +1,11 @@
+# Redirige toutes les requetes vers le front controller,
+# sauf les fichiers reellement presents (CSS, images).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Pas de listing de repertoire.
+Options -Indexes
