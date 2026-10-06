@@ -16,7 +16,7 @@ use App\Model\User;
  */
 final class UserRepository
 {
-    private const COLUMNS = 'id, email, display_name, password_hash';
+    private const COLUMNS = 'id, email, display_name, password_hash, is_demo, expires_at';
 
     public function findByEmail(string $email): ?User
     {

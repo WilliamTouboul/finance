@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Controller\AuthController;
 use App\Controller\DashboardController;
+use App\Controller\DemoController;
 use App\Controller\OperationController;
 use App\Controller\RecurrenceController;
 use App\Controller\TagController;
@@ -25,6 +26,10 @@ return static function (Router $router): void {
     $router->get('/connexion',    [AuthController::class, 'showLogin']);
     $router->post('/connexion',   [AuthController::class, 'login']);
     $router->post('/deconnexion', [AuthController::class, 'logout']);
+
+    // Demonstration : la page est partageable, l'ouverture du compte est un POST.
+    $router->get('/demo',  [DemoController::class, 'landing']);
+    $router->post('/demo', [DemoController::class, 'start']);
 
     // Acces protege : chaque action appelle requireUser() en premiere ligne.
     $router->get('/', [DashboardController::class, 'index']);

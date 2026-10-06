@@ -24,6 +24,21 @@ $flashes = $flashes ?? [];
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body>
+    <?php if ($currentUser !== null && $currentUser->isDemo): ?>
+        <?php /* Bandeau permanent : un visiteur doit savoir en permanence qu'il
+                 est dans un bac a sable, et surtout que ce qu'il saisit ne sera
+                 pas conserve. */ ?>
+        <div class="demo-banner" role="status">
+            <div class="container demo-banner__inner">
+                <strong>Mode démonstration</strong>
+                <span>
+                    Toutes les fonctions sont actives et les données sont fictives.
+                    Ce compte sera effacé dans <?= (int) $currentUser->hoursBeforeExpiry() ?> heures.
+                </span>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <header class="app-header">
         <div class="container app-header__inner">
             <a class="brand" href="/"><?= View::e($appName) ?></a>

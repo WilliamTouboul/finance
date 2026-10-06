@@ -1505,3 +1505,80 @@ select.field__input {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================================
+   Mode démonstration
+   ========================================================================== */
+
+.demo-banner {
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 0.8125rem;
+}
+
+.demo-banner__inner {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.demo-banner strong {
+    font-weight: 600;
+}
+
+.demo-banner span {
+    opacity: 0.8;
+}
+
+/* -------------------------------------- Accès depuis la page de connexion */
+
+.demo-access {
+    margin-top: var(--space-5);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+    text-align: center;
+}
+
+.demo-access__sep {
+    display: block;
+    margin-top: calc(-1 * var(--space-5) - 0.6rem);
+    margin-bottom: var(--space-3);
+    background: var(--surface);
+    padding: 0 var(--space-3);
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.demo-access__note {
+    margin: var(--space-3) 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.demo-access .form {
+    margin: 0;
+}
+
+/* ------------------------------------------------- Page de présentation */
+
+.demo-intro {
+    margin: 0 0 var(--space-4);
+    color: var(--text-muted);
+}
+
+.demo-points {
+    margin: 0 0 var(--space-5);
+    padding-left: 1.1rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.demo-points li {
+    margin-bottom: var(--space-2);
+}

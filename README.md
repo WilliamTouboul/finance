@@ -76,6 +76,26 @@ le temps de la session :
 - Toute valeur affichee dans un gabarit passe par `View::e()`.
 - Tout formulaire POST embarque un jeton CSRF via `Csrf::field()`.
 
+## Demonstration
+
+Un visiteur peut essayer l'application sans compte depuis `/demo`, ou depuis le
+bouton place sous le formulaire de connexion. Un compte anonyme est cree a la
+volee, garni de trois mois d'operations, de tags, de recurrences et de budgets,
+puis detruit au bout de 24 heures.
+
+Il ne s'agit pas d'une simulation : la demonstration fait tourner exactement le
+meme code que l'application reelle. Une implementation parallele aurait double
+un millier de lignes d'acces aux donnees, avec la certitude qu'elles finiraient
+par diverger -- et une demonstration qui ne montre plus le vrai comportement ne
+sert a rien. L'isolation repose sur la barriere qui separe deja deux
+utilisateurs ordinaires : chaque requete filtre sur `user_id`.
+
+L'ouverture passe par POST et non par GET, car creer un compte est une ecriture :
+un lien serait declenche par les prechargements de navigateur et les apercus de
+messagerie. La purge des comptes expires est opportuniste, declenchee a chaque
+ouverture, ce qui evite de dependre d'une tache planifiee que tous les
+hebergements ne proposent pas.
+
 ## Securite
 
 L'application heberge des donnees financieres personnelles. Les mesures en place :

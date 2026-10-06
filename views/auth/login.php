@@ -44,6 +44,22 @@ use App\Core\View;
 
         <button type="submit" class="btn btn--primary btn--block">Se connecter</button>
     </form>
+
+    <?php /* Un formulaire distinct, et non un lien : ouvrir une demonstration
+             cree un compte, donc c'est une ecriture. Un lien serait declenche
+             par les prechargements de navigateur et les apercus de messagerie. */ ?>
+    <div class="demo-access">
+        <span class="demo-access__sep">ou</span>
+
+        <form method="post" action="/demo" class="form">
+            <?= Csrf::field() ?>
+            <button type="submit" class="btn btn--block">Accéder à la démonstration</button>
+        </form>
+
+        <p class="demo-access__note">
+            Compte d'essai garni de données fictives, sans inscription.
+        </p>
+    </div>
 </div>
 
 <p class="auth__footnote">

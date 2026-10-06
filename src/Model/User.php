@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Model;
 
+use DateTimeImmutable;
+
 /**
  * Un utilisateur de l'application.
  *
@@ -18,6 +20,12 @@ final class User
         public readonly string $email,
         public readonly string $displayName,
         public readonly string $passwordHash,
+        /**
+         * Compte de demonstration : cree a la volee pour un visiteur, detruit
+         * a son expiration. Fonctionne en tout point comme un compte ordinaire.
+         */
+        public readonly bool $isDemo = false,
+        public readonly ?DateTimeImmutable $expiresAt = null,
     ) {
     }
 
@@ -31,7 +39,25 @@ final class User
             (string) $row['email'],
             (string) $row['display_name'],
             (string) $row['password_hash'],
+            (bool) ($row['is_demo'] ?? false),
+            isset($row['expires_at']) && $row['expires_at'] !== null
+                ? new DateTimeImmutable((string) $row['expires_at'])
+                : null,
         );
+    }
+
+    /**
+     * Heures restantes avant la destruction du compte de demonstration.
+     */
+    public function hoursBeforeExpiry(): ?int
+    {
+        if ($this->expiresAt === null) {
+            return null;
+        }
+
+        $seconds = $this->expiresAt->getTimestamp() - time();
+
+        return max(0, (int) ceil($seconds / 3600));
     }
 
     /**
