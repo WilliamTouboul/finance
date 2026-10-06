@@ -51,6 +51,7 @@ le temps de la session :
 | `bin/create-user.php`     | Cree un compte (seul moyen : pas d'inscription) |
 | `bin/set-password.php`    | Definit un nouveau mot de passe sur un compte         |
 | `bin/test.php`            | Lance les suites de tests (aucune ne touche a la base) |
+| `bin/check-prod.php`      | Verifie une installation avant ouverture au public    |
 
 ## Arborescence
 
@@ -122,11 +123,84 @@ arguments de chaque appel, si bien qu'une panne survenue pendant une connexion
 ecrivait `Auth->attempt('vous@exemple.fr', 'VotreMotDePa...')` dans le journal.
 `config/bootstrap.php` desactive ce comportement pour tous les points d'entree.
 
-### Avant une mise en ligne
+## Deploiement
 
-- Passer `env` a `prod` dans `config/config.php` (masque les traces d'erreur).
-- Passer `session.secure` a `true` une fois le site servi en HTTPS.
-- Pointer le document root de l'hebergeur sur `public/`, jamais sur la racine du projet.
+L'application tourne sur n'importe quel hebergement mutualise offrant PHP 8.2+
+et MySQL ou MariaDB. La procedure ci-dessous est ecrite pour alwaysdata, dont
+l'offre gratuite suffit largement : 1 Go de disque, un sous-domaine en
+`.alwaysdata.net` et un certificat Let's Encrypt automatique.
+
+### 1. Compte et site
+
+1. Creer un compte sur alwaysdata, offre Free.
+2. Dans **Web > Sites**, ajouter un site.
+3. **Adresse** : `votrenom.alwaysdata.net`.
+4. **Type** : PHP, version 8.2 ou superieure.
+5. **Racine** : `/www/finance/public` -- et surtout pas `/www/finance`.
+   C'est le reglage le plus important de toute la procedure : pointer sur la
+   racine du projet rendrait `config/config.php` et ses identifiants
+   telechargeables par n'importe qui.
+
+### 2. Base de donnees
+
+1. Dans **Bases de donnees > MySQL**, creer une base `finance`.
+2. Creer un **utilisateur dedie** a cette base, avec un mot de passe long.
+   Ne pas reutiliser le compte d'administration : une faille applicative ne
+   doit pas donner la main sur les autres bases du compte.
+3. Noter l'hote indique par alwaysdata, qui n'est pas `127.0.0.1`.
+
+### 3. Envoi des fichiers
+
+En SSH, ce qui rend les mises a jour suivantes triviales :
+
+    ssh votrecompte@ssh-votrecompte.alwaysdata.net
+    cd www
+    git clone https://github.com/VOTRE-COMPTE/finance.git
+    cd finance
+
+A defaut, un envoi par SFTP du dossier complet fonctionne tout aussi bien.
+
+### 4. Configuration
+
+    cp config/config.example.php config/config.php
+
+Puis editer `config/config.php` :
+
+- `env` a `'prod'`
+- `session.secure` a `true` (alwaysdata fournit HTTPS)
+- `db.host`, `db.name`, `db.user`, `db.password` avec les valeurs de l'etape 2
+
+### 5. Base et compte
+
+    php bin/migrate.php
+    php bin/create-user.php
+
+La premiere commande cree les tables, la seconde votre compte. Il n'existe
+aucune page d'inscription : c'est le seul moyen d'ouvrir un acces.
+
+### 6. Verification
+
+    php bin/check-prod.php
+
+Ce script passe en revue la configuration, l'environnement, la base et
+l'exposition des fichiers. Il refuse de valider tant qu'un point bloquant
+subsiste, et renvoie un code de sortie exploitable. Ne pas ouvrir l'acces
+avant qu'il soit vert.
+
+### Mises a jour suivantes
+
+    cd ~/www/finance
+    git pull
+    php bin/migrate.php
+    php bin/check-prod.php
+
+`config/config.php` n'etant pas versionne, un `git pull` ne l'ecrase jamais.
+
+### Sauvegardes
+
+L'offre gratuite conserve trois jours d'historique, ce qui est court pour des
+donnees saisies a la main pendant des annees. L'export CSV de la page
+Operations permet de garder une copie chez soi : le faire de temps en temps.
 
 ## Avancement
 

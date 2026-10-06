@@ -60,12 +60,74 @@ final class Response
                 header("{$name}: {$value}");
             }
 
-            // En-tetes de securite appliques a toutes les reponses.
-            header('X-Content-Type-Options: nosniff');
-            header('X-Frame-Options: DENY');
-            header('Referrer-Policy: same-origin');
+            $this->sendSecurityHeaders();
         }
 
         echo $this->body;
+    }
+
+    /**
+     * En-tetes de securite appliques a toutes les reponses.
+     */
+    private function sendSecurityHeaders(): void
+    {
+        // Empeche le navigateur de deviner un type de contenu : un fichier
+        // servi en text/plain ne doit jamais finir interprete comme du HTML.
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: same-origin');
+
+        /*
+         * Politique de securite du contenu.
+         *
+         * 'unsafe-inline' est necessaire : les couleurs de tags sont posees en
+         * attribut style, et une confirmation de suppression en attribut
+         * onsubmit. La politique garde malgre tout sa valeur, car elle bloque
+         * le chargement de tout script ou feuille de style venus d'ailleurs --
+         * ce qu'un XSS cherche justement a faire.
+         *
+         * form-action interdit qu'un formulaire soit detourne vers un autre
+         * domaine, et base-uri qu'une balise <base> injectee ne reroute les
+         * URL relatives de la page.
+         */
+        header(
+            "Content-Security-Policy: default-src 'self'; "
+            . "script-src 'self' 'unsafe-inline'; "
+            . "style-src 'self' 'unsafe-inline'; "
+            . "img-src 'self' data:; "
+            . "form-action 'self'; "
+            . "base-uri 'self'; "
+            . "frame-ancestors 'none'"
+        );
+
+        /*
+         * HSTS : une fois le site visite en HTTPS, le navigateur refusera
+         * pendant un an de s'y connecter en clair, meme si l'utilisateur tape
+         * l'adresse sans https. Cela ferme la fenetre ou une interception
+         * pourrait rediriger la toute premiere requete.
+         *
+         * Pose uniquement quand la requete est effectivement chiffree : sur un
+         * site encore servi en HTTP, l'en-tete le rendrait injoignable.
+         */
+        if (self::isHttps()) {
+            header('Strict-Transport-Security: max-age=31536000');
+        }
+    }
+
+    /**
+     * La requete est-elle arrivee en HTTPS ?
+     *
+     * Derriere un proxy, le serveur applicatif recoit du HTTP en clair et le
+     * protocole d'origine n'est connu que par un en-tete. Celui-ci est
+     * declaratif, donc falsifiable -- mais le seul effet d'une falsification
+     * serait d'ajouter une protection supplementaire, jamais d'en retirer une.
+     */
+    private static function isHttps(): bool
+    {
+        if (($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off') {
+            return true;
+        }
+
+        return ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     }
 }

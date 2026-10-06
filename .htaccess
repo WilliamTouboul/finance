@@ -1,0 +1,24 @@
+# Garde-fou de dernier recours.
+#
+# Ce fichier n'est jamais lu quand l'hebergement est correctement configure :
+# le document root doit pointer sur public/, et Apache ne remonte alors jamais
+# jusqu'ici.
+#
+# S'il est lu, c'est que le document root pointe sur la racine du projet. Dans
+# ce cas config/config.php, qui contient les identifiants de la base, devient
+# telechargeable par n'importe qui. On refuse donc tout.
+#
+# Le resultat est une application inaccessible plutot qu'une application qui
+# livre ses secrets : c'est le bon arbitrage, et la panne est assez visible
+# pour qu'on corrige le document root immediatement.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
+
+Options -Indexes
