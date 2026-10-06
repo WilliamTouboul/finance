@@ -40,6 +40,15 @@ try {
     exit(1);
 }
 
+// Verifie avant de demander quoi que ce soit : faire saisir une adresse et un
+// mot de passe pour echouer ensuite sur une table manquante serait une perte
+// de temps, et l'erreur SQL brute n'indique pas quoi faire.
+if (!Database::schemaIsInstalled()) {
+    Prompt::error('Les tables n existent pas encore dans cette base.');
+    Prompt::line('    Lancez d abord : php bin/migrate.php');
+    exit(1);
+}
+
 $users = new UserRepository();
 
 Prompt::line('Creation d un compte');

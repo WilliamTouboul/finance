@@ -103,6 +103,28 @@ final class Database
     }
 
     /**
+     * Le schema a-t-il ete installe ?
+     *
+     * Verifie la presence de la table des utilisateurs, qui est creee par la
+     * toute premiere migration : si elle manque, aucune autre n'a tourne.
+     *
+     * Sert aux scripts en ligne de commande, qui peuvent alors renvoyer vers
+     * bin/migrate.php plutot que de laisser remonter une erreur SQL brute.
+     */
+    public static function schemaIsInstalled(): bool
+    {
+        try {
+            return (int) self::value(
+                'SELECT COUNT(*) FROM information_schema.tables
+                  WHERE table_schema = DATABASE() AND table_name = ?',
+                ['users']
+            ) === 1;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Execute un ensemble d'ecritures dans une transaction.
      * Toute exception declenche un rollback et est propagee.
      *

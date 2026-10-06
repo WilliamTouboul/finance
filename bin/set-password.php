@@ -37,6 +37,12 @@ try {
     exit(1);
 }
 
+if (!Database::schemaIsInstalled()) {
+    Prompt::error('Les tables n existent pas encore dans cette base.');
+    Prompt::line('    Lancez d abord : php bin/migrate.php');
+    exit(1);
+}
+
 $users = new UserRepository();
 
 Prompt::line('Changement de mot de passe');
