@@ -1,3 +1,23 @@
+# Annule le refus pose a la racine du projet.
+#
+# Apache applique les .htaccess de tous les repertoires parents, et pas
+# seulement celui du document root. Le garde-fou de ../.htaccess, qui refuse
+# tout acces, retomberait donc aussi sur ce dossier et bloquerait le site
+# qu'il est cense proteger.
+#
+# Les directives Require d'un .htaccess enfant remplacent celles du parent :
+# cette ligne rouvre public/, et public/ seulement. Le refus reste en vigueur
+# partout ailleurs -- config/, src/, database/ et le reste du projet demeurent
+# inaccessibles si le document root venait a etre mal pointe.
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
+</IfModule>
+
 # Redirige toutes les requetes vers le front controller,
 # sauf les fichiers reellement presents (CSS, images).
 <IfModule mod_rewrite.c>

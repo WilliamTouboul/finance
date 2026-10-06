@@ -11,6 +11,12 @@
 # Le resultat est une application inaccessible plutot qu'une application qui
 # livre ses secrets : c'est le bon arbitrage, et la panne est assez visible
 # pour qu'on corrige le document root immediatement.
+#
+# Attention : Apache applique les .htaccess de tous les repertoires parents,
+# pas seulement celui du document root. Ce refus retombe donc aussi sur
+# public/, qui le leve explicitement dans son propre .htaccess. Les deux
+# fichiers vont ensemble ; supprimer le Require all granted de public/ rendrait
+# le site inaccessible.
 
 <IfModule mod_authz_core.c>
     Require all denied
