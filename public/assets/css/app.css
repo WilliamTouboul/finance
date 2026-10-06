@@ -1202,3 +1202,306 @@ select.field__input {
         flex: 1 1 calc(50% - var(--space-4));
     }
 }
+
+/* ==========================================================================
+   Bloc 5 — récurrences, courbe du solde, budgets
+   ========================================================================== */
+
+/* ------------------------------------------------------ Courbe du solde */
+
+.chart-frame {
+    padding: var(--space-5);
+}
+
+.line-chart {
+    display: block;
+    width: 100%;
+    height: 200px;
+}
+
+.line-chart__line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.line-chart__area {
+    fill: var(--accent);
+    opacity: 0.08;
+    stroke: none;
+}
+
+.line-chart__zero {
+    stroke: var(--negative);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+    opacity: 0.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.line-chart__dot {
+    fill: var(--accent);
+}
+
+.line-chart__hit {
+    fill: transparent;
+}
+
+.line-chart__hit:hover {
+    fill: var(--text);
+    opacity: 0.04;
+}
+
+.chart-frame__bounds {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-2);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------- Échéances dues */
+
+.panel--pending {
+    border-color: var(--info-border);
+    margin-bottom: var(--space-5);
+}
+
+.panel--pending .panel__head {
+    background: var(--info-bg);
+    border-bottom-color: var(--info-border);
+}
+
+.panel--pending .panel__title {
+    color: var(--info-text);
+}
+
+.due-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.due {
+    border-bottom: 1px solid var(--border);
+}
+
+.due:last-child {
+    border-bottom: none;
+}
+
+.due__form {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    margin: 0;
+    flex-wrap: wrap;
+}
+
+.due__date {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 5.5rem;
+}
+
+.due__label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1 1 180px;
+    font-weight: 500;
+}
+
+.due__amount {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.field__input--compact {
+    width: 7rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.9375rem;
+}
+
+.inline-form {
+    display: inline;
+    margin: 0;
+}
+
+/* ----------------------------------------------------- Liste des récurrences */
+
+.rec-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rec {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.rec:last-child {
+    border-bottom: none;
+}
+
+.rec:hover {
+    background: var(--bg);
+}
+
+.rec--paused {
+    opacity: 0.55;
+}
+
+.rec__main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+.rec__label {
+    font-weight: 500;
+}
+
+.rec__meta {
+    width: 100%;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.rec__amount {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rec__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+/* ------------------------------------------------------------- Budgets */
+
+.budget-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--space-5);
+    margin: 0;
+    padding: var(--space-5);
+    list-style: none;
+}
+
+.budget__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.budget__figures {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    white-space: nowrap;
+}
+
+.budget__ceiling {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.budget__bar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+}
+
+.budget__fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--positive);
+    transition: width 0.2s;
+}
+
+.budget--warning .budget__fill {
+    background: #D97706;
+}
+
+.budget--exceeded .budget__fill {
+    background: var(--negative);
+}
+
+.budget__note {
+    margin: var(--space-2) 0 0;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.budget--exceeded .budget__note {
+    color: var(--negative);
+    font-weight: 500;
+}
+
+/* --------------------------------------------- Budget sur la page Tags */
+
+.tag-row__budget {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+}
+
+.field-row--two {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* --------------------------------------------------------- Responsive */
+
+@media (max-width: 720px) {
+    .due__form {
+        gap: var(--space-2);
+    }
+
+    .due__date {
+        flex: 0 0 auto;
+    }
+
+    .rec__actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .tag-row {
+        flex-wrap: wrap;
+    }
+
+    .tag-row__budget {
+        width: 100%;
+    }
+
+    .field-row--two {
+        grid-template-columns: 1fr;
+    }
+
+    .budget-list {
+        grid-template-columns: 1fr;
+    }
+}

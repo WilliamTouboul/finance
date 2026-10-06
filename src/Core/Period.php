@@ -197,6 +197,24 @@ final class Period
         return $today >= $this->startSql() && $today <= $this->endSql();
     }
 
+    /**
+     * Nombre de mois couverts par la periode.
+     *
+     * Sert a mettre a l'echelle un budget, qui se definit au mois : sur une
+     * vue annuelle le plafond vaut douze fois le budget mensuel. Une vue
+     * journaliere renvoie 0, car comparer une seule journee a un plafond
+     * mensuel ne veut rien dire -- l'appelant masque alors les budgets plutot
+     * que d'afficher un pourcentage trompeur.
+     */
+    public function monthsCovered(): int
+    {
+        return match ($this->granularity) {
+            Granularity::Day   => 0,
+            Granularity::Month => 1,
+            Granularity::Year  => 12,
+        };
+    }
+
     public function startSql(): string
     {
         return $this->start->format('Y-m-d');

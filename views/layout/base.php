@@ -32,6 +32,7 @@ $flashes = $flashes ?? [];
                 <nav class="nav" aria-label="Navigation principale">
                     <a class="nav__link" href="/">Tableau de bord</a>
                     <a class="nav__link" href="/operations">Opérations</a>
+                    <a class="nav__link" href="/recurrences">Récurrences</a>
                     <a class="nav__link" href="/tags">Tags</a>
                 </nav>
 

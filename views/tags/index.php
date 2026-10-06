@@ -1,13 +1,17 @@
 <?php
 /**
  * @var array<int, \App\Model\Tag> $tags
+ * @var array<int, int>            $budgets montants par identifiant de tag
  * @var string                     $formName
  * @var string                     $formColor
  * @var array<int, string>         $errors
  */
 
 use App\Core\Csrf;
+use App\Core\Money;
 use App\Core\View;
+
+$budgets = $budgets ?? [];
 ?>
 <div class="page-head">
     <h1 class="page-head__title">Tags</h1>
@@ -53,6 +57,7 @@ use App\Core\View;
 <section class="panel">
     <div class="panel__head">
         <h2 class="panel__title">Vos tags</h2>
+        <span class="panel__note">Le budget est mensuel et se compare aux dépenses du pôle principal</span>
     </div>
 
     <?php if ($tags === []): ?>
@@ -76,11 +81,29 @@ use App\Core\View;
                         <?php if ($tag->usageCount === 0): ?>
                             jamais utilisé
                         <?php else: ?>
-                            <a href="/operations?tag=<?= (int) $tag->id ?>">
+                            <a href="/operations?tags%5B%5D=<?= (int) $tag->id ?>">
                                 <?= (int) $tag->usageCount ?> opération<?= $tag->usageCount > 1 ? 's' : '' ?>
                             </a>
                         <?php endif; ?>
                     </span>
+
+                    <?php /* Champ vide = pas de budget. Effacer la valeur le retire. */ ?>
+                    <form method="post" action="/tags/<?= (int) $tag->id ?>/budget" class="tag-row__budget">
+                        <?= Csrf::field() ?>
+                        <label class="visually-hidden" for="budget-<?= (int) $tag->id ?>">
+                            Budget mensuel de <?= View::e($tag->name) ?>
+                        </label>
+                        <input
+                            class="field__input field__input--compact"
+                            type="text"
+                            inputmode="decimal"
+                            id="budget-<?= (int) $tag->id ?>"
+                            name="budget"
+                            value="<?= isset($budgets[$tag->id]) ? View::e(Money::toInput($budgets[$tag->id])) : '' ?>"
+                            placeholder="budget">
+                        <span class="field__suffix">€/mois</span>
+                        <button type="submit" class="btn btn--quiet btn--small">Enregistrer</button>
+                    </form>
 
                     <span class="tag-row__actions">
                         <a class="btn btn--quiet btn--small" href="/tags/<?= (int) $tag->id ?>/modifier">Modifier</a>
@@ -88,6 +111,7 @@ use App\Core\View;
                         <form
                             method="post"
                             action="/tags/<?= (int) $tag->id ?>/supprimer"
+                            class="inline-form"
                             onsubmit="return confirm('Supprimer ce tag ? Les opérations concernées seront conservées.');">
                             <?= Csrf::field() ?>
                             <button type="submit" class="btn btn--quiet btn--small btn--danger">Supprimer</button>

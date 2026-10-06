@@ -5,20 +5,26 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Core\Csrf;
+use App\Core\Money;
 use App\Core\NotFoundException;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Model\Tag;
+use App\Repository\BudgetRepository;
 use App\Repository\TagRepository;
 use App\Service\Auth;
 
 /**
- * Gestion des poles de depense.
+ * Gestion des poles de depense, et de leur budget mensuel.
  *
  * Les tags se creent librement depuis cette page, puis s'associent aux
  * operations. Un meme tag peut servir a autant d'operations que voulu, et une
  * operation peut en porter plusieurs.
+ *
+ * Le budget est gere ici plutot que sur un ecran a part : c'est une propriete
+ * du pole, pas un objet autonome. Le definir la ou on le voit evite une page
+ * de reglages supplementaire.
  */
 final class TagController extends BaseController
 {
@@ -26,11 +32,14 @@ final class TagController extends BaseController
 
     private TagRepository $tags;
 
+    private BudgetRepository $budgets;
+
     public function __construct(Auth $auth)
     {
         parent::__construct($auth);
 
-        $this->tags = new TagRepository();
+        $this->tags    = new TagRepository();
+        $this->budgets = new BudgetRepository();
     }
 
     public function index(Request $request): Response
@@ -40,10 +49,55 @@ final class TagController extends BaseController
         return $this->view('tags/index', [
             'pageTitle' => 'Tags',
             'tags'      => $this->tags->allWithUsage($user->id),
+            'budgets'   => $this->budgets->amountsByTag($user->id),
             'formName'  => '',
             'formColor' => Tag::DEFAULT_COLOR,
             'errors'    => [],
         ]);
+    }
+
+    /**
+     * Definit, modifie ou retire le budget mensuel d'un pole.
+     *
+     * Un champ vide ou un montant nul supprime le budget : c'est plus direct
+     * qu'un bouton dedie, et "pas de budget" se dit naturellement en effacant
+     * la valeur.
+     */
+    public function saveBudget(Request $request, string $id): Response
+    {
+        $user = $this->requireUser();
+
+        if (!Csrf::isValid($request->input(Csrf::FIELD_NAME))) {
+            return $this->redirect('/tags');
+        }
+
+        $tag = $this->tags->find((int) $id, $user->id);
+
+        if ($tag === null) {
+            throw new NotFoundException('Tag introuvable.');
+        }
+
+        $raw   = (string) $request->input('budget', '');
+        $cents = $raw === '' ? null : Money::parse($raw);
+
+        if ($raw !== '' && $cents === null) {
+            Session::flash('error', 'Montant de budget invalide.');
+
+            return $this->redirect('/tags');
+        }
+
+        if ($cents === null || $cents === 0) {
+            $this->budgets->delete($user->id, $tag->id);
+            Session::flash('info', "Budget retiré du pôle « {$tag->name} ».");
+
+            return $this->redirect('/tags');
+        }
+
+        $this->budgets->save($user->id, $tag->id, abs($cents));
+        Session::flash('success', "Budget de « {$tag->name} » fixé à "
+            . Money::format(abs($cents)) . ' par mois.');
+
+        return $this->redirect('/tags');
     }
 
     public function store(Request $request): Response
@@ -62,6 +116,7 @@ final class TagController extends BaseController
             return $this->view('tags/index', [
                 'pageTitle' => 'Tags',
                 'tags'      => $this->tags->allWithUsage($user->id),
+                'budgets'   => $this->budgets->amountsByTag($user->id),
                 'formName'  => $name,
                 'formColor' => $color,
                 'errors'    => $errors,

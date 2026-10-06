@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Core\LineChart;
+use App\Core\Money;
 use App\Core\Period;
 use App\Core\PieChart;
 use App\Core\Request;
 use App\Core\Response;
 use App\Model\OperationFilter;
+use App\Repository\BudgetRepository;
 use App\Repository\OperationRepository;
+use App\Repository\RecurrenceRepository;
 use App\Service\Auth;
 
 /**
  * Tableau de bord, reserve a l'utilisateur connecte.
  *
- * Trois indicateurs, la repartition des depenses par pole et les derniers
+ * Indicateurs, courbe du solde, repartition par pole, budgets et derniers
  * mouvements, le tout cadre sur la periode consultee.
  */
 final class DashboardController extends BaseController
@@ -28,11 +32,17 @@ final class DashboardController extends BaseController
 
     private OperationRepository $operations;
 
+    private RecurrenceRepository $recurrences;
+
+    private BudgetRepository $budgets;
+
     public function __construct(Auth $auth)
     {
         parent::__construct($auth);
 
-        $this->operations = new OperationRepository();
+        $this->operations  = new OperationRepository();
+        $this->recurrences = new RecurrenceRepository();
+        $this->budgets     = new BudgetRepository();
     }
 
     public function index(Request $request): Response
@@ -45,18 +55,33 @@ final class DashboardController extends BaseController
         $pie    = new PieChart();
         $slices = $pie->computeSlices($this->expenseData($user->id, $period));
 
+        $series = $this->operations->dailyBalance($user->id, $period);
+
         return $this->view('dashboard/index', [
-            'pageTitle'   => 'Tableau de bord',
-            'period'      => $period,
+            'pageTitle'    => 'Tableau de bord',
+            'period'       => $period,
             // Solde cumule a la fin de la periode, et non solde de la periode :
             // la question posee est "ou j'en etais a cette date".
-            'balance'     => $this->operations->balanceAsOf($user->id, $period->endSql()),
-            'totals'      => $this->operations->totalsFor($user->id, new OperationFilter($period)),
-            'operations'  => array_slice($operations, 0, self::PREVIEW_SIZE),
-            'totalCount'  => count($operations),
-            'previewSize' => self::PREVIEW_SIZE,
-            'pie'         => $pie,
-            'slices'      => $slices,
+            'balance'      => $this->operations->balanceAsOf($user->id, $period->endSql()),
+            'totals'       => $this->operations->totalsFor($user->id, new OperationFilter($period)),
+            'operations'   => array_slice($operations, 0, self::PREVIEW_SIZE),
+            'totalCount'   => count($operations),
+            'previewSize'  => self::PREVIEW_SIZE,
+            'pie'          => $pie,
+            'slices'       => $slices,
+            'lineChart'    => new LineChart(),
+            'balanceValues' => array_map(static fn (array $p): int => $p['balance'], $series),
+            'balanceLabels' => array_map(
+                static fn (array $p): string => Period::formatLongDate($p['date'])
+                    . ' · ' . Money::format($p['balance']),
+                $series
+            ),
+            // Les budgets se definissent au mois : les afficher sur une journee
+            // donnerait un pourcentage denue de sens.
+            'budgets'      => $period->monthsCovered() > 0
+                ? $this->budgets->withSpending($user->id, $period)
+                : [],
+            'pendingCount' => $this->recurrences->countPending($user->id),
         ]);
     }
 

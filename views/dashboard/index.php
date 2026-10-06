@@ -8,6 +8,11 @@
  * @var int                              $previewSize
  * @var \App\Core\PieChart               $pie
  * @var array<int, array<string, mixed>> $slices
+ * @var \App\Core\LineChart              $lineChart
+ * @var array<int, int>                  $balanceValues
+ * @var array<int, string>               $balanceLabels
+ * @var array<int, \App\Model\Budget>    $budgets
+ * @var int                              $pendingCount
  */
 
 use App\Core\Money;
@@ -17,6 +22,14 @@ use App\Core\View;
     <h1 class="page-head__title">Tableau de bord</h1>
     <p class="page-head__subtitle">Vue d'ensemble de vos comptes</p>
 </div>
+
+<?php if ($pendingCount > 0): ?>
+    <div class="notice notice--info" role="status">
+        <strong><?= (int) $pendingCount ?> échéance<?= $pendingCount > 1 ? 's' : '' ?> récurrente<?= $pendingCount > 1 ? 's' : '' ?></strong>
+        <span>arrivée<?= $pendingCount > 1 ? 's' : '' ?> à terme et en attente de votre validation.</span>
+        <a href="/recurrences">Les examiner</a>
+    </div>
+<?php endif; ?>
 
 <?= View::partial('partials/period-nav', ['period' => $period, 'baseUrl' => '/']) ?>
 
@@ -42,6 +55,25 @@ use App\Core\View;
     </article>
 </section>
 
+<?php if ($balanceValues !== []): ?>
+    <section class="panel">
+        <div class="panel__head">
+            <h2 class="panel__title">Évolution du solde</h2>
+            <span class="panel__note">Jour par jour sur la période</span>
+        </div>
+
+        <div class="chart-frame">
+            <?php /* SVG produit par LineChart, qui echappe deja ses propres valeurs. */ ?>
+            <?= $lineChart->render($balanceValues, $balanceLabels) ?>
+
+            <div class="chart-frame__bounds">
+                <span><?= View::e(Money::format(min($balanceValues))) ?></span>
+                <span><?= View::e(Money::format(max($balanceValues))) ?></span>
+            </div>
+        </div>
+    </section>
+<?php endif; ?>
+
 <?php if ($slices !== []): ?>
     <section class="panel">
         <div class="panel__head">
@@ -51,7 +83,6 @@ use App\Core\View;
 
         <div class="pie-layout">
             <div class="pie-layout__chart">
-                <?php /* SVG produit par PieChart, qui echappe deja ses propres valeurs. */ ?>
                 <?= $pie->render($slices) ?>
             </div>
 
@@ -74,6 +105,45 @@ use App\Core\View;
                 <?php endforeach; ?>
             </ul>
         </div>
+    </section>
+<?php endif; ?>
+
+<?php if ($budgets !== []): ?>
+    <section class="panel">
+        <div class="panel__head">
+            <h2 class="panel__title">Budgets</h2>
+            <a class="panel__link" href="/tags">Modifier</a>
+        </div>
+
+        <ul class="budget-list">
+            <?php foreach ($budgets as $budget): ?>
+                <li class="budget budget--<?= View::e($budget->level()) ?>">
+                    <div class="budget__head">
+                        <span class="tag-badge"
+                              style="background: <?= View::e($budget->tag->color) ?>; color: <?= View::e($budget->tag->readableTextColor()) ?>"
+                        ><?= View::e($budget->tag->name) ?></span>
+
+                        <span class="budget__figures amount">
+                            <?= View::e(Money::format($budget->spentCents)) ?>
+                            <span class="budget__ceiling">/ <?= View::e(Money::format($budget->ceilingCents())) ?></span>
+                        </span>
+                    </div>
+
+                    <div class="budget__bar" role="img"
+                         aria-label="<?= View::e(number_format($budget->share() * 100, 0) . ' % du budget consommé') ?>">
+                        <span class="budget__fill" style="width: <?= View::e(number_format($budget->barShare() * 100, 2, '.', '')) ?>%"></span>
+                    </div>
+
+                    <p class="budget__note">
+                        <?php if ($budget->isExceeded()): ?>
+                            Dépassé de <?= View::e(Money::format(abs($budget->remainingCents()))) ?>
+                        <?php else: ?>
+                            Reste <?= View::e(Money::format($budget->remainingCents())) ?>
+                        <?php endif; ?>
+                    </p>
+                </li>
+            <?php endforeach; ?>
+        </ul>
     </section>
 <?php endif; ?>
 

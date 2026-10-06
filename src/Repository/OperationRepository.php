@@ -147,11 +147,12 @@ final class OperationRepository
         ?string $note,
         array $tagIds,
         ?int $primaryTagId = null,
+        ?int $recurrenceId = null,
     ): int {
-        return (int) Database::transaction(function (PDO $pdo) use ($userId, $label, $amountCents, $occurredOn, $note, $tagIds, $primaryTagId): int {
+        return (int) Database::transaction(function (PDO $pdo) use ($userId, $label, $amountCents, $occurredOn, $note, $tagIds, $primaryTagId, $recurrenceId): int {
             $statement = $pdo->prepare(
-                'INSERT INTO operations (user_id, label, amount_cents, occurred_on, note, primary_tag_id)
-                 VALUES (?, ?, ?, ?, ?, ?)'
+                'INSERT INTO operations (user_id, label, amount_cents, occurred_on, note, primary_tag_id, recurrence_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
             $statement->execute([
                 $userId,
@@ -160,6 +161,9 @@ final class OperationRepository
                 $occurredOn->format('Y-m-d'),
                 $note,
                 self::resolvePrimaryTag($tagIds, $primaryTagId),
+                // Trace la provenance : c'est elle qui empeche une echeance
+                // deja validee d'etre reproposee.
+                $recurrenceId,
             ]);
 
             $operationId = (int) $pdo->lastInsertId();
@@ -229,6 +233,56 @@ final class OperationRepository
               WHERE user_id = ? AND occurred_on <= ?',
             [$userId, $dateSql]
         );
+    }
+
+    /**
+     * Solde cumule jour par jour sur la periode.
+     *
+     * Le point de depart est le solde a la veille du premier jour : la courbe
+     * doit continuer l'historique et non repartir de zero a chaque periode,
+     * sinon un mois ordinaire ressemblerait a un decouvert.
+     *
+     * Les jours sans mouvement sont presents aussi, a solde constant. Les
+     * omettre donnerait une courbe dont l'axe horizontal serait irregulier :
+     * deux points voisins pourraient etre separes de trois semaines.
+     *
+     * @return array<int, array{date: DateTimeImmutable, balance: int, movement: int}>
+     */
+    public function dailyBalance(int $userId, Period $period): array
+    {
+        $rows = Database::all(
+            'SELECT occurred_on, SUM(amount_cents) AS total
+               FROM operations
+              WHERE user_id = ? AND occurred_on BETWEEN ? AND ?
+              GROUP BY occurred_on
+              ORDER BY occurred_on',
+            [$userId, $period->startSql(), $period->endSql()]
+        );
+
+        $movementByDay = [];
+        foreach ($rows as $row) {
+            $movementByDay[(string) $row['occurred_on']] = (int) $row['total'];
+        }
+
+        $balance = $this->balanceAsOf(
+            $userId,
+            $period->start->modify('-1 day')->format('Y-m-d')
+        );
+
+        $series = [];
+        $day    = $period->start;
+
+        while ($day <= $period->end) {
+            $key      = $day->format('Y-m-d');
+            $movement = $movementByDay[$key] ?? 0;
+            $balance += $movement;
+
+            $series[] = ['date' => $day, 'balance' => $balance, 'movement' => $movement];
+
+            $day = $day->modify('+1 day');
+        }
+
+        return $series;
     }
 
     /**

@@ -50,6 +50,7 @@ le temps de la session :
 | `bin/migrate.php`         | Applique les migrations SQL non encore jouees   |
 | `bin/create-user.php`     | Cree un compte (seul moyen : pas d'inscription) |
 | `bin/set-password.php`    | Definit un nouveau mot de passe sur un compte         |
+| `bin/test.php`            | Lance les suites de tests (aucune ne touche a la base) |
 
 ## Arborescence
 
@@ -60,6 +61,7 @@ le temps de la session :
     config/      Configuration (config.php non versionne) et table de routage
     database/    Migrations SQL
     bin/         Scripts en ligne de commande
+    tests/       Suites de tests, lancees par bin/test.php
     var/         Logs et fichiers generes
 
 ## Conventions
@@ -112,4 +114,4 @@ ecrivait `Auth->attempt('vous@exemple.fr', 'VotreMotDePa...')` dans le journal.
 - [x] Bloc 2 — Authentification
 - [x] Bloc 3 — CRUD des tags et des operations, navigation par jour / mois / annee
 - [x] Bloc 4 — Camembert par pole, recherche et filtres, export CSV
-- [ ] Bloc 5 — Import CSV, operations recurrentes, courbe du solde
+- [x] Bloc 5 — Operations recurrentes, courbe du solde, budgets par pole
