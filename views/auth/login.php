@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @var string|null $error
  * @var string|null $email
@@ -46,5 +47,5 @@ use App\Core\View;
 </div>
 
 <p class="auth__footnote">
-    Application privée. Les comptes sont créés depuis le serveur.
+    Application privée.
 </p>
