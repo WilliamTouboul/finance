@@ -154,9 +154,19 @@ function ensureDatabaseExists(string $root): void
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
     } catch (PDOException $e) {
+        // Le message d'aide depend du serveur vise : conseiller de demarrer un
+        // service local a quelqu'un qui deploie chez un hebergeur l'envoie sur
+        // une fausse piste.
+        $host  = (string) Config::get('db.host', '');
+        $local = in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
+
         exit(
-            '[!] Serveur MySQL injoignable : ' . $e->getMessage() . PHP_EOL
-            . '    Verifiez que MySQL est demarre dans le dashboard DevServer.' . PHP_EOL
+            '[!] Serveur de base injoignable sur ' . $host . ' : ' . $e->getMessage() . PHP_EOL
+            . ($local
+                ? '    Verifiez que le serveur de base de donnees est demarre sur cette machine.' . PHP_EOL
+                : '    Verifiez db.host, db.user et db.password dans config/config.php.' . PHP_EOL
+                  . '    Chez un hebergeur, l hote n est jamais 127.0.0.1 : il figure dans votre' . PHP_EOL
+                  . '    interface d administration, a la section des bases de donnees.' . PHP_EOL)
         );
     }
 
@@ -164,8 +174,24 @@ function ensureDatabaseExists(string $root): void
         ->query("SHOW DATABASES LIKE " . $server->quote($name))
         ->fetchColumn();
 
-    if ($exists === false) {
+    if ($exists !== false) {
+        return;
+    }
+
+    try {
         $server->exec("CREATE DATABASE `{$name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         echo "Base '{$name}' creee." . PHP_EOL;
+    } catch (PDOException $e) {
+        // Sur un hebergement mutualise, le compte applicatif n'a de droits que
+        // sur ses propres bases, et c'est tant mieux : il ne doit pas pouvoir
+        // en creer ni en detruire d'autres. La base se cree alors depuis
+        // l'interface d'administration de l'hebergeur.
+        exit(
+            "[!] La base '{$name}' n'existe pas et n'a pas pu etre creee." . PHP_EOL
+            . '    ' . $e->getMessage() . PHP_EOL
+            . '    Creez-la depuis l interface de votre hebergeur, puis relancez ce script.' . PHP_EOL
+            . '    Verifiez aussi que db.name correspond exactement au nom qui y figure :' . PHP_EOL
+            . '    il est souvent prefixe par le nom du compte.' . PHP_EOL
+        );
     }
 }
