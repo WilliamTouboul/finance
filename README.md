@@ -1,211 +1,261 @@
 # Finance
 
-Dashboard de gestion de finances personnelles. PHP 8.4, architecture MVC orientee objet,
-MySQL, sans dependance externe.
+A personal finance dashboard. PHP 8.4, hand-rolled MVC, MySQL, **zero external
+dependencies**.
 
-## Prerequis
+**[Try the live demo](https://williamtouboul.alwaysdata.net/demo)** — no sign-up,
+no credentials. A throwaway account is created on the spot, filled with three
+months of sample data, and deleted 24 hours later. Everything is editable.
 
-- PHP 8.4 avec les extensions `pdo_mysql`, `mbstring`, `openssl`
-- MySQL 5.7+ ou MariaDB 10.4+
+## What it does
 
-Aucune bibliotheque tierce, donc pas de `composer install` : l'autoload est assure par un
-autoloader PSR-4 maison (`src/Core/Autoloader.php`).
+Track income and expenses by hand, one entry at a time. No bank API, by design:
+the point of the tool is to reconcile accounts deliberately, not to watch a feed
+scroll past.
 
-## Installation
+- **Entries** with a label, a signed amount, a date and free-form tags
+- **Tags** you create as you go, each with its own colour, doubling as spending
+  categories
+- **Time navigation** by day, month or year, with every figure scoped to the
+  period on screen
+- **Spending breakdown** as a pie chart, server-rendered SVG
+- **Balance curve** over the period, so an approaching overdraft is visible at a
+  glance
+- **Recurring entries** — rent, salary, subscriptions — that queue up for review
+  rather than posting themselves
+- **Monthly budgets** per category, with a progress bar that turns amber then red
+- **Search and filters** on label, direction, tags and amount range
+- **CSV export** of whatever is currently on screen, filters included
 
-Si PHP n'est pas dans le PATH, sous PowerShell une commande qui commence par un
-chemin entre guillemets doit etre prefixee par l'operateur d'appel `&`, sans
-quoi PowerShell la prend pour une simple chaine de caracteres :
+## Notable design decisions
 
-    & "C:\chemin\vers\php.exe" bin/migrate.php
+The parts of this codebase worth a second look:
 
-Plus commode pour une session de travail, ajouter le dossier de PHP au PATH
-le temps de la session :
+**Money is never a float.** Amounts live as signed integers of cents, in memory
+and in the database. `0.1 + 0.2 !== 0.3` in binary, and a rounding error on
+someone's accounts is not a cosmetic bug.
 
-    $env:Path = "C:\chemin\vers\le\dossier\php;$env:Path"
-    php bin/migrate.php
+**Date ranges, never `YEAR()` or `MONTH()`.** Wrapping an indexed column in a
+function stops MySQL from using the index and forces a full table scan. Every
+period filter uses inclusive bounds against `(user_id, occurred_on, id)`.
 
-1. Copier la configuration :
+**One primary tag carries the amount.** An entry can wear as many tags as you
+like, but exactly one owns its value in the breakdown. Without that rule, €80
+tagged both *leisure* and *sport* would count twice and the pie chart would
+total more than you actually spent. The slices now add up to the period's real
+spending, to the cent.
 
-       copy config\config.example.php config\config.php
+**Charts are computed server-side and emitted as SVG.** No charting library, so
+no dependency, no JavaScript requirement, and they stay crisp when printed. The
+geometry is separated from the rendering so it can be tested without diffing SVG
+strings — including the degenerate case of a single 100% slice, where an arc's
+start and end points coincide and SVG draws nothing at all.
 
-2. Renseigner les identifiants MySQL dans `config/config.php`.
+**Recurring entries never post themselves.** A due occurrence joins a review
+queue; you confirm it, adjusting the amount if the bill varies. What marks an
+occurrence as already handled is the entry it produced, not a "last generated"
+counter that would drift out of sync the first time a row was deleted by hand.
+That also makes a double submission harmless and lets you backfill history by
+dating a recurrence in the past.
 
-3. Appliquer les migrations (la base est creee si elle n'existe pas) :
+**No duplicate code path for the demo.** The demo runs the exact same
+application; isolation rests on the same `user_id` boundary that separates any
+two users, which the test suite exercises directly. A parallel in-session
+implementation would have meant maintaining a second copy of ~1,100 lines of
+data access — two implementations that drift apart, and a demo that eventually
+stops showing real behaviour.
 
-       php bin/migrate.php
+## Requirements
 
-4. Creer le compte utilisateur :
+- PHP 8.2+ with `pdo_mysql`, `mbstring` and `openssl`
+- MySQL 5.7+ or MariaDB 10.4+
 
-       php bin/create-user.php
+No third-party libraries, so no `composer install`. Autoloading is a hand-written
+PSR-4 autoloader in `src/Core/Autoloader.php`, comments included.
 
-5. Lancer le serveur de developpement :
+## Local setup
 
-       php -S localhost:8000 -t public
+```bash
+cp config/config.example.php config/config.php   # then fill in your credentials
+php bin/migrate.php                              # creates the database if absent
+php bin/create-user.php                          # the only way to create an account
+php -S localhost:8000 -t public
+```
+
+On Windows, if PHP is not on your `PATH`, PowerShell needs the call operator in
+front of a quoted path, otherwise it treats the line as a plain string:
+
+```powershell
+& "C:\path\to\php.exe" bin/migrate.php
+```
 
 ## Scripts
 
-| Script                    | Role                                            |
-|---------------------------|-------------------------------------------------|
-| `bin/migrate.php`         | Applique les migrations SQL non encore jouees   |
-| `bin/create-user.php`     | Cree un compte (seul moyen : pas d'inscription) |
-| `bin/set-password.php`    | Definit un nouveau mot de passe sur un compte         |
-| `bin/test.php`            | Lance les suites de tests (aucune ne touche a la base) |
-| `bin/check-prod.php`      | Verifie une installation avant ouverture au public    |
+| Script                   | Purpose                                                  |
+|--------------------------|----------------------------------------------------------|
+| `bin/migrate.php`        | Applies pending SQL migrations                           |
+| `bin/create-user.php`    | Creates an account — there is no sign-up page            |
+| `bin/set-password.php`   | Sets a new password on an existing account               |
+| `bin/test.php`           | Runs the test suites (none of them touch the database)   |
+| `bin/check-prod.php`     | Audits an install before exposing it to the internet     |
 
-## Arborescence
+## Tests
 
-    public/      Seul dossier expose par le serveur web (front controller + assets)
-    src/Core/    Noyau : autoload, routage, acces DB, session, CSRF, hachage
-    src/         Controleurs, modeles, repositories, services
-    views/       Gabarits PHP
-    config/      Configuration (config.php non versionne) et table de routage
-    database/    Migrations SQL
-    bin/         Scripts en ligne de commande
-    tests/       Suites de tests, lancees par bin/test.php
-    var/         Logs et fichiers generes
+```bash
+php bin/test.php
+```
+
+```
+Budget                  17 assertions   ok
+PieChart + LineChart    34 assertions   ok
+Money                   22 assertions   ok
+Period                  30 assertions   ok
+Schedule                23 assertions   ok
+
+[ok] 126 assertions, no failures.
+```
+
+A small harness in `tests/TestCase.php` rather than PHPUnit, consistent with
+the zero-dependency rule. The suites cover pure computation — amounts, dates,
+recurrence schedules, chart geometry, budget thresholds — which is exactly where
+a silent error would go unnoticed. The runner returns a meaningful exit code, so
+it drops straight into CI.
+
+## Project layout
+
+```
+public/      the only directory served by the web server
+src/Core/    autoloading, routing, database access, session, CSRF, hashing
+src/         controllers, models, repositories, services
+views/       plain PHP templates
+config/      configuration (config.php is git-ignored) and the route table
+database/    SQL migrations
+bin/         command-line scripts
+tests/       test suites, run by bin/test.php
+var/         logs and generated files
+```
 
 ## Conventions
 
-- Les montants sont stockes en **centimes**, dans un entier signe. Jamais de flottant :
-  `0.1 + 0.2 !== 0.3` en binaire, et une erreur d'arrondi sur des comptes est inacceptable.
-- Negatif = depense, positif = recette.
-- `occurred_on` est la date reelle de l'operation, distincte de `created_at`.
-- Une operation porte autant de tags que voulu, mais un seul **tag principal**, qui
-  porte son montant dans la repartition par pole. Sans cette regle, une operation a
-  deux tags compterait deux fois et le camembert depasserait les depenses reelles.
-- Toute valeur affichee dans un gabarit passe par `View::e()`.
-- Tout formulaire POST embarque un jeton CSRF via `Csrf::field()`.
+- Amounts are **integer cents**, signed. Never a float.
+- Negative is an expense, positive is income.
+- `occurred_on` is when the transaction happened, distinct from `created_at`.
+- An entry may carry many tags but exactly one **primary tag**, which owns its
+  amount in the category breakdown.
+- Every value printed in a template goes through `View::e()`.
+- Every POST form carries a CSRF token via `Csrf::field()`.
 
-## Demonstration
+## Demo mode
 
-Un visiteur peut essayer l'application sans compte depuis `/demo`, ou depuis le
-bouton place sous le formulaire de connexion. Un compte anonyme est cree a la
-volee, garni de trois mois d'operations, de tags, de recurrences et de budgets,
-puis detruit au bout de 24 heures.
+`/demo`, or the button under the sign-in form, creates an anonymous account
+seeded with three months of entries, tags, recurrences and budgets, then deletes
+it after 24 hours. Visitors get the whole application, with no restrictions.
 
-Il ne s'agit pas d'une simulation : la demonstration fait tourner exactement le
-meme code que l'application reelle. Une implementation parallele aurait double
-un millier de lignes d'acces aux donnees, avec la certitude qu'elles finiraient
-par diverger -- et une demonstration qui ne montre plus le vrai comportement ne
-sert a rien. L'isolation repose sur la barriere qui separe deja deux
-utilisateurs ordinaires : chaque requete filtre sur `user_id`.
+Opening a demo is a POST rather than a link, inconvenient as that is for sharing:
+creating an account is a write, and a GET would be triggered by browser
+prefetching, link previews in messaging apps and crawlers. The shared URL is
+therefore a landing page with a real form on it.
 
-L'ouverture passe par POST et non par GET, car creer un compte est une ecriture :
-un lien serait declenche par les prechargements de navigateur et les apercus de
-messagerie. La purge des comptes expires est opportuniste, declenchee a chaque
-ouverture, ce qui evite de dependre d'une tache planifiee que tous les
-hebergements ne proposent pas.
+Expired accounts are purged opportunistically on each new demo, rather than by a
+scheduled task that not every host offers. Their data goes with them through the
+existing `ON DELETE CASCADE` constraints.
 
-## Securite
+## Security
 
-L'application heberge des donnees financieres personnelles. Les mesures en place :
+The application holds personal financial data. What is in place:
 
-| Mesure                            | Mise en oeuvre                                                       |
-|-----------------------------------|----------------------------------------------------------------------|
-| Hachage des mots de passe         | Argon2id si disponible, bcrypt cout 12 en repli, rehash automatique  |
-| Injection SQL                     | Requetes preparees systematiques, emulation PDO desactivee           |
-| XSS                               | Echappement a la sortie via `View::e()`                              |
-| CSRF                              | Jeton par session + cookie `SameSite=Strict`                         |
-| Fixation de session               | Regeneration de l'identifiant a la connexion                         |
-| Vol de cookie de session          | `HttpOnly`, `Secure` (en HTTPS), empreinte du client                  |
-| Force brute                       | Verrouillage 15 min au-dela de 10 echecs par IP ou 20 par compte     |
-| Enumeration des comptes           | Message unique + verification factice a temps constant               |
-| Exposition du code source         | Seul `public/` est expose, la configuration est hors docroot         |
-| Fuite par les traces d'erreur     | Arguments retires des traces (`zend.exception_ignore_args`)          |
-| Encodage des entrees              | Normalisation UTF-8 a la lecture de la requete                       |
+| Concern                     | Implementation                                                   |
+|-----------------------------|------------------------------------------------------------------|
+| Password storage            | Argon2id where available, bcrypt cost 12 otherwise, auto-rehash   |
+| SQL injection               | Prepared statements throughout, PDO emulation disabled            |
+| XSS                         | Output escaping via `View::e()`, plus a Content-Security-Policy   |
+| CSRF                        | Per-session token and a `SameSite=Strict` cookie                  |
+| Session fixation            | Session ID regenerated on login                                   |
+| Session cookie theft        | `HttpOnly`, `Secure` over HTTPS, client fingerprint               |
+| Brute force                 | 15-minute lockout past 10 failures per IP or 20 per account       |
+| Account enumeration         | One generic message, plus a constant-time dummy verification      |
+| Cross-account access        | Every query filters on `user_id`; a foreign row returns 404       |
+| Source code exposure        | Only `public/` is served, configuration lives outside the docroot |
+| Leaks through stack traces  | Function arguments stripped (`zend.exception_ignore_args`)        |
+| Input encoding              | UTF-8 normalisation as the request is read                        |
 
-Le mot de passe en clair n'existe que le temps de sa verification. Il n'est
-jamais journalise, ni renvoye dans un formulaire, ni place dans une URL, ni
-stocke en session, ni accepte en argument de ligne de commande. Le point le
-moins evident est celui des traces d'erreur : par defaut PHP y joint les
-arguments de chaque appel, si bien qu'une panne survenue pendant une connexion
-ecrivait `Auth->attempt('vous@exemple.fr', 'VotreMotDePa...')` dans le journal.
-`config/bootstrap.php` desactive ce comportement pour tous les points d'entree.
+A plaintext password exists only for as long as it takes to verify it. It is
+never logged, echoed back into a form, placed in a URL, stored in the session or
+accepted as a command-line argument.
 
-## Deploiement
+The least obvious one is the stack traces. PHP attaches each call's arguments to
+exception traces by default, so a database outage during sign-in used to write
+`Auth->attempt('you@example.com', 'YourPasswo...')` straight into the log file —
+and onto the screen in development mode. `config/bootstrap.php` disables that for
+every entry point.
 
-L'application tourne sur n'importe quel hebergement mutualise offrant PHP 8.2+
-et MySQL ou MariaDB. La procedure ci-dessous est ecrite pour alwaysdata, dont
-l'offre gratuite suffit largement : 1 Go de disque, un sous-domaine en
-`.alwaysdata.net` et un certificat Let's Encrypt automatique.
+Hashing is not pinned to one algorithm. Argon2id is preferable, but shared hosts
+do not always provide it; the code picks the best available at runtime and
+rehashes on the next successful login if the environment changes. That decision
+paid off on the first deployment.
 
-### 1. Compte et site
+## Deployment
 
-1. Creer un compte sur alwaysdata, offre Free.
-2. Dans **Web > Sites**, ajouter un site.
-3. **Adresse** : `votrenom.alwaysdata.net`.
-4. **Type** : PHP, version 8.2 ou superieure.
-5. **Racine** : `/www/finance/public` -- et surtout pas `/www/finance`.
-   C'est le reglage le plus important de toute la procedure : pointer sur la
-   racine du projet rendrait `config/config.php` et ses identifiants
-   telechargeables par n'importe qui.
+Runs on any shared host with PHP 8.2+ and MySQL or MariaDB. These steps are
+written for alwaysdata, whose free tier is more than enough: 1 GB of disk, an
+`.alwaysdata.net` subdomain and automatic Let's Encrypt certificates.
 
-### 2. Base de donnees
+**1. Site** — in *Web > Sites*, add a PHP site and set the document root to
+`/www/finance/public`. **Not** `/www/finance`. This is the single most important
+setting here: pointing at the project root would make `config/config.php` and its
+credentials downloadable by anyone.
 
-1. Dans **Bases de donnees > MySQL**, creer une base `finance`.
-2. Creer un **utilisateur dedie** a cette base, avec un mot de passe long.
-   Ne pas reutiliser le compte d'administration : une faille applicative ne
-   doit pas donner la main sur les autres bases du compte.
-3. Noter l'hote indique par alwaysdata, qui n'est pas `127.0.0.1`.
+**2. Database** — create a database and a **dedicated user** with a long
+password. Not the admin account: an application flaw should not reach your other
+databases. Note the host, which is not `127.0.0.1`.
 
-### 3. Envoi des fichiers
+**3. Files**
 
-En SSH, ce qui rend les mises a jour suivantes triviales :
+```bash
+ssh youraccount@ssh-youraccount.alwaysdata.net
+cd www && git clone https://github.com/WilliamTouboul/finance.git && cd finance
+```
 
-    ssh votrecompte@ssh-votrecompte.alwaysdata.net
-    cd www
-    git clone https://github.com/VOTRE-COMPTE/finance.git
-    cd finance
+**4. Configure** — copy `config/config.example.php` to `config/config.php`, set
+`env` to `'prod'`, `session.secure` to `true`, and the database credentials from
+step 2.
 
-A defaut, un envoi par SFTP du dossier complet fonctionne tout aussi bien.
+**5. Install**
 
-### 4. Configuration
+```bash
+php bin/migrate.php
+php bin/create-user.php
+```
 
-    cp config/config.example.php config/config.php
+**6. Verify**
 
-Puis editer `config/config.php` :
+```bash
+php bin/check-prod.php
+```
 
-- `env` a `'prod'`
-- `session.secure` a `true` (alwaysdata fournit HTTPS)
-- `db.host`, `db.name`, `db.user`, `db.password` avec les valeurs de l'etape 2
+This audits configuration, environment, database and file exposure, and refuses
+to pass while anything blocking remains. Do not open access until it is green.
 
-### 5. Base et compte
+### Subsequent updates
 
-    php bin/migrate.php
-    php bin/create-user.php
+```bash
+cd ~/www/finance && git pull && php bin/migrate.php && php bin/check-prod.php
+```
 
-La premiere commande cree les tables, la seconde votre compte. Il n'existe
-aucune page d'inscription : c'est le seul moyen d'ouvrir un acces.
+`config/config.php` is git-ignored, so `git pull` never overwrites it.
 
-### 6. Verification
+### Backups
 
-    php bin/check-prod.php
+The free tier keeps three days of history, which is short for data entered by
+hand over years. The CSV export on the Entries page is there for that: run it
+now and then and keep a copy.
 
-Ce script passe en revue la configuration, l'environnement, la base et
-l'exposition des fichiers. Il refuse de valider tant qu'un point bloquant
-subsiste, et renvoie un code de sortie exploitable. Ne pas ouvrir l'acces
-avant qu'il soit vert.
+## Status
 
-### Mises a jour suivantes
+All five planned stages are complete and deployed.
 
-    cd ~/www/finance
-    git pull
-    php bin/migrate.php
-    php bin/check-prod.php
-
-`config/config.php` n'etant pas versionne, un `git pull` ne l'ecrase jamais.
-
-### Sauvegardes
-
-L'offre gratuite conserve trois jours d'historique, ce qui est court pour des
-donnees saisies a la main pendant des annees. L'export CSV de la page
-Operations permet de garder une copie chez soi : le faire de temps en temps.
-
-## Avancement
-
-- [x] Bloc 1 — Mise en place, base de donnees, squelette MVC
-- [x] Bloc 2 — Authentification
-- [x] Bloc 3 — CRUD des tags et des operations, navigation par jour / mois / annee
-- [x] Bloc 4 — Camembert par pole, recherche et filtres, export CSV
-- [x] Bloc 5 — Operations recurrentes, courbe du solde, budgets par pole
+- [x] Foundations — database, MVC skeleton, routing
+- [x] Authentication
+- [x] Tags and entries, day / month / year navigation
+- [x] Category pie chart, search and filters, CSV export
+- [x] Recurring entries, balance curve, per-category budgets
